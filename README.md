@@ -196,7 +196,6 @@ http {
 - **Scalability**: Docker Compose and networks enable easy scaling.
 - **Maintainability**: Log rotation prevents disk space issues.
 
-## Next Steps
+## Conclusion
 
-- Enhance the backend API with additional endpoints (e.g., CRUD operations).
-- Add features to the React frontend (e.g., forms to interact with the API).
+This is an open source project with the link: https://roadmap.sh/projects/multiservice-docker
