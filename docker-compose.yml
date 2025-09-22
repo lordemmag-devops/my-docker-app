@@ -1,0 +1,88 @@
+
+services:
+  base-node:
+    build: ./base-node
+    image: base-node:latest
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build: ./backend
+    depends_on:
+      - db
+      - cache
+    networks:
+      - app-net
+    environment:
+      - MONGO_URI=mongodb://db:27017/mydb
+    secrets:
+      - db-password
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3000).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: mongo:latest
+    volumes:
+      - db-data:/data/db
+    networks:
+      - app-net
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  cache:
+    image: redis:alpine
+    volumes:
+      - cache-data:/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  proxy:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+      - api
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  db-data:
+  cache-data:
+
+secrets:
+  db-password:
+    file: ./db-password.txt
