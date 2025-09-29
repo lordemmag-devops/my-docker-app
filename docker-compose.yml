@@ -4,10 +4,9 @@ services:
     build: ./base-node
     image: base-node:latest
 
-  web:
+  web-blue:
     build: ./frontend
-    depends_on:
-      - api
+    image: web:latest
     networks:
       - app-net
     healthcheck:
@@ -15,23 +14,69 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  api:
+  api-blue:
     build: ./backend
+    image: api:latest
     depends_on:
-      - db
-      - cache
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
     networks:
       - app-net
-    environment:
-      - MONGO_URI=mongodb://db:27017/mydb
-    secrets:
-      - db-password
     healthcheck:
-      test: ["CMD", "node", "-e", "require('net').createConnection(3000).on('error', () => process.exit(1))"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web-green:
+    build: ./frontend
+    image: web:latest
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api-green:
+    build: ./backend
+    image: api:latest
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db:
     image: mongo:latest
@@ -39,41 +84,54 @@ services:
       - db-data:/data/db
     networks:
       - app-net
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
-      interval: 10s
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
+    secrets:
+      - db-password
+    environment:
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
 
   cache:
-    image: redis:alpine
+    image: redis:latest
     volumes:
       - cache-data:/data
     networks:
       - app-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  proxy:
-    build: ./nginx
-    ports:
-      - "80:80"
-    depends_on:
-      - web
-      - api
-    networks:
-      - app-net
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  proxy:
+    build: ./nginx
+    image: proxy:latest
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    depends_on:
+      - web-blue
+      - api-blue
+      - web-green
+      - api-green
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      - ACTIVE_ENV=blue  # Controls whether blue or green is live
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   app-net:
