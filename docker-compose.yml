@@ -6,7 +6,7 @@ services:
 
   web-blue:
     build: ./frontend
-    image: web:latest
+    image: web-blue:latest
     networks:
       - app-net
     healthcheck:
@@ -22,7 +22,7 @@ services:
 
   api-blue:
     build: ./backend
-    image: api:latest
+    image: api-blue:latest
     depends_on:
       db:
         condition: service_healthy
@@ -43,7 +43,7 @@ services:
 
   web-green:
     build: ./frontend
-    image: web:latest
+    image: web-green:latest
     networks:
       - app-net
     healthcheck:
@@ -59,7 +59,7 @@ services:
 
   api-green:
     build: ./backend
-    image: api:latest
+    image: api-green:latest
     depends_on:
       db:
         condition: service_healthy
@@ -92,6 +92,7 @@ services:
     secrets:
       - db-password
     environment:
+      MANGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
 
   cache:
@@ -143,4 +144,5 @@ volumes:
 
 secrets:
   db-password:
-    file: ./db-password.txt
+    # file: ./db-password.txt
+    external: true
