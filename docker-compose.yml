@@ -5,7 +5,9 @@ services:
     image: base-node:latest
 
   web-blue:
-    build: ./frontend
+    build: 
+      context: ./frontend # Directory containing Dockerfile
+      dockerfile: Dockerfile # Explicit name (Optional, but helps debugging)
     image: web:latest
     networks:
       - app-net
