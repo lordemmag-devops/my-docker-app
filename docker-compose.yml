@@ -125,25 +125,39 @@ services:
       timeout: 10s
       retries: 3
 
-  proxy:
+  proxy-blue:
     build: ./nginx
-    image: proxy:latest
+    image: proxy-blue:latest
     ports:
       - "80:80"
+      - "8081:80" # Port for health checks
     networks:
       - app-net
     depends_on:
       - web-blue
       - api-blue
+    environment:
+      - WEB_HOST=web-blue
+      - API_HOST=api-blue
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  proxy-green:
+    build: ./nginx
+    image: proxy-green:latest
+    ports:
+      - "8082:80" # Port for health checks
+    networks:
+      - app-net
+    depends_on:
       - web-green
       - api-green
     environment:
-      - ACTIVE_ENV=blue  # Controls whether blue or green is live
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - WEB_HOST=web-green
+      - API_HOST=api-green
     logging:
       driver: "json-file"
       options:
