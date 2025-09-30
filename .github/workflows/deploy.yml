@@ -26,22 +26,26 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Determine active environment
+      - name: Determine active and inactive environments
         id: env
         run: |
-          # Alternate between blue and green (customize as needed)
-          ACTIVE_ENV=$( [ "$GITHUB_RUN_NUMBER" -eq "0" ] && echo "blue" || echo "green" )
-          echo "ACTIVE_ENV=$ACTIVE_ENV" >> $GITHUB_ENV
+          echo "${{ secrets.SERVER_SSH_KEY }}" > private_key && chmod 600 private_key
+          # Check which proxy is mapped to port 80 on the server to determine the active color.
+          # Fallback to 'green' if the check fails (e.g., first deployment).
+          if ssh -o StrictHostKeyChecking=no -i private_key ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} "docker ps --filter 'publish=80' --format '{{.Names}}' | grep -q 'blue'"; then
+            echo "ACTIVE_ENV=blue" >> $GITHUB_ENV
+            echo "INACTIVE_ENV=green" >> $GITHUB_ENV
+          else
+            echo "ACTIVE_ENV=green" >> $GITHUB_ENV
+            echo "INACTIVE_ENV=blue" >> $GITHUB_ENV
+          fi
 
       - name: Build and push images for inactive environment
         run: |
-          if [ "${{ env.ACTIVE_ENV }}" == "blue" ]; then
-            docker compose build web-green api-green
-            docker compose push web-green api-green
-          else
-            docker compose build web-blue api-blue
-            docker compose push web-blue api-blue
-          fi
+          INACTIVE_ENV=${{ env.INACTIVE_ENV }}
+          echo "Building for inactive environment: $INACTIVE_ENV"
+          docker compose build base-node web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+          docker compose push base-node web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -50,10 +54,29 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /home/ubuntu/my-docker-app  # Your server path
+            set -e # Exit immediately if a command exits with a non-zero status.
+            cd /home/ubuntu/my-docker-app
             git pull origin main
-            export ACTIVE_ENV=${{ env.ACTIVE_ENV }}
-            docker compose pull
-            docker compose up -d
-            curl -f http://localhost || exit 1
-            docker compose up -d proxy
+            
+            INACTIVE_ENV=${{ env.INACTIVE_ENV }}
+            ACTIVE_ENV=${{ env.ACTIVE_ENV }}
+            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8081 || echo 8082)
+            
+            echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
+            docker compose pull web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            docker compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV
+            
+            echo "--- Health check on inactive environment ---"
+            for i in {1..12}; do
+              if curl -fs "http://localhost:$INACTIVE_PORT/api/"; then
+                echo "Health check passed! Switching traffic..."
+                docker compose up -d --no-deps proxy-$INACTIVE_ENV
+                docker compose stop proxy-$ACTIVE_ENV
+                exit 0
+              fi
+              echo "Health check attempt $i failed. Retrying in 10s..."
+              sleep 10
+            done
+            
+            echo "Health check failed after multiple retries. Deployment aborted."
+            exit 1
