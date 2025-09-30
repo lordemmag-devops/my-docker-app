@@ -40,11 +40,6 @@ jobs:
           docker compose build base-node web-${{ env.INACTIVE_ENV }} api-${{ env.INACTIVE_ENV }}
           docker compose push base-node web-${{ env.INACTIVE_ENV }} api-${{ env.INACTIVE_ENV }}
 
-      - name: Build and push images for inactive environment
-        run: |
-          docker compose build web-${{ env.INACTIVE_ENV }} api-${{ env.INACTIVE_ENV }}
-          docker compose push web-${{ env.INACTIVE_ENV }} api-${{ env.INACTIVE_ENV }}
-
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
