@@ -44,8 +44,8 @@ jobs:
         run: |
           INACTIVE_ENV=${{ env.INACTIVE_ENV }}
           echo "Building for inactive environment: $INACTIVE_ENV"
-          docker compose build base-node web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
-          docker compose push base-node web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+          docker compose build web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+          docker compose push web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1

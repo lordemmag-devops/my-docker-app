@@ -1,13 +1,7 @@
-
 services:
-  base-node:
-    build: ./base-node
-    image: base-node:latest
 
   web-blue:
-    build: 
-      context: ./frontend # Directory containing Dockerfile
-      dockerfile: Dockerfile # Explicit name (Optional, but helps debugging)
+    build: ./frontend
     image: web:latest
     networks:
       - app-net
