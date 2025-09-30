@@ -56,7 +56,7 @@ jobs:
           script: |
             set -e # Exit immediately if a command exits with a non-zero status.
             cd /home/ubuntu/my-docker-app
-            git pull origin main
+            git pull origin master
             
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
             ACTIVE_ENV=${{ env.ACTIVE_ENV }}
