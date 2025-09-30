@@ -1,15 +1,15 @@
 # Multi-Service Docker Application
 
-This project demonstrates a multi-service application built with Docker, showcasing advanced Docker features like multi-stage builds, custom base images, Docker Compose, secrets, volumes, networks, health checks, and logging. The application simulates a real-world scenario with interconnected services, optimized for performance and scalability.
+This project demonstrates a multi-service application built with Docker, showcasing advanced features like multi-stage builds, Docker Compose, and an automated blue-green deployment pipeline using GitHub Actions. The application simulates a real-world scenario with interconnected services, optimized for performance, reliability, and zero-downtime deployments.
 
 ## Project Overview
 
 The application consists of five services:
 - **Web Application**: A React-based frontend served via Nginx.
 - **API Service**: A Node.js Express backend handling API requests.
-- **Database**: A MongoDB instance for persistent data storage.
+- **Database**: A MongoDB instance for persistent data storage (not included in the blue-green setup for simplicity, but would use a shared, managed database in production).
 - **Cache**: A Redis instance for performance optimization.
-- **Reverse Proxy**: An Nginx server to route incoming requests to the appropriate service.
+- **Reverse Proxy**: An Nginx server that routes incoming requests to the active "blue" or "green" environment.
 
 ## Features
 
@@ -19,6 +19,7 @@ The application consists of five services:
 - **Docker Network**: A bridge network (`app-net`) ensures secure communication between services.
 - **Volumes**: Persistent storage for MongoDB (`db-data`) and Redis (`cache-data`).
 - **Secrets**: Secure handling of sensitive data (e.g., MongoDB password via `db-password.txt`).
+- **Blue-Green Deployments**: Automated, zero-downtime deployments orchestrated by GitHub Actions.
 - **Health Checks**: Monitors service availability to ensure reliability.
 - **Optimized Dockerfiles**: Reduces image sizes and build times.
 - **Logging**: Configured with log rotation to manage log file sizes.
@@ -28,7 +29,6 @@ The application consists of five services:
 Before running the project, ensure you have the following installed:
 - **Docker**: Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop) for your operating system (Windows, Mac, or Linux).
 - **Docker Compose**: Included with Docker Desktop. Verify with `docker compose version`.
-- **Node.js**: Required for local development of the frontend and backend. Install from [nodejs.org](https://nodejs.org) (LTS version recommended).
 - **Git** (optional): For cloning or managing the project. Install from [git-scm.com](https://git-scm.com).
 
 ## Project Structure
@@ -64,45 +64,20 @@ my-docker-app/
 
 ## Setup Instructions
 
-1. **Clone or Create the Project**:
-   - If using Git, clone the repository:
-     ```bash
-     git clone <repository-url>
-     cd my-docker-app
-     ```
-   - Alternatively, create the folder structure manually as shown above.
+1. **Clone the Project**:
+   ```bash
+   git clone <repository-url>
+   cd my-docker-app
+   ```
 
-2. **Set Up the Frontend**:
-   - Navigate to `frontend/`:
-     ```bash
-     cd frontend
-     ```
-   - Initialize a React app:
-     ```bash
-     npx create-react-app .
-     ```
-   - This creates the React project structure.
-
-3. **Set Up the Backend**:
-   - Navigate to `backend/`:
-     ```bash
-     cd ../backend
-     ```
-   - Initialize a Node.js project:
-     ```bash
-     npm init -y
-     npm install express mongoose redis
-     ```
-   - Create `index.js` with the backend code (see [Backend Code](#backend-code)).
-
-4. **Create the MongoDB Password Secret**:
+2. **Create the MongoDB Password Secret**:
    - In the main project folder, create `db-password.txt`:
      ```bash
      echo "supersecret" > db-password.txt
      ```
    - Replace "supersecret" with a secure password for production.
 
-5. **Build and Run the Application**:
+3. **Build and Run the Application**:
    - From the main project folder:
      ```bash
      docker compose up -d
@@ -113,13 +88,13 @@ my-docker-app/
      docker compose logs
      ```
 
-6. **Access the Application**:
+4. **Access the Application**:
    - Open a browser and visit:
      - Frontend: `http://localhost`
      - API: `http://localhost/api/`
    - The API should respond with "Hello from API!".
 
-7. **Stop the Application**:
+5. **Stop the Application**:
    ```bash
    docker compose down
    ```
@@ -127,13 +102,13 @@ my-docker-app/
 ## Configuration Details
 
 ### Docker Compose
-The `docker-compose.yml` defines five services:
+The `docker-compose.yml` defines the services for the application, including separate services for blue and green environments to enable zero-downtime deployments.
 - `base-node`: Custom Node.js base image.
-- `web`: React frontend served by Nginx.
-- `api`: Node.js Express backend.
+- `web-blue` / `web-green`: React frontend instances.
+- `api-blue` / `api-green`: Node.js Express backend instances.
 - `db`: MongoDB database.
 - `cache`: Redis cache.
-- `proxy`: Nginx reverse proxy.
+- `proxy-blue` / `proxy-green`: Nginx reverse proxy instances that control which environment is live.
 
 Key features:
 - **Networks**: All services use the `app-net` bridge network for communication.

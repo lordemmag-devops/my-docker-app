@@ -5,9 +5,7 @@ services:
     image: base-node:latest
 
   web-blue:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    build: ./frontend
     image: web:latest
     networks:
       - app-net
@@ -28,9 +26,7 @@ services:
         max-file: "3"
 
   api-blue:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    build: ./backend
     image: api:latest
     depends_on:
       db:
@@ -51,9 +47,7 @@ services:
         max-file: "3"
 
   web-green:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    build: ./frontend
     image: web:latest
     networks:
       - app-net
@@ -74,9 +68,7 @@ services:
         max-file: "3"
 
   api-green:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    build: ./backend
     image: api:latest
     depends_on:
       db:
