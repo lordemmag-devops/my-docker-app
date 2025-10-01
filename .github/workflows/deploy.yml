@@ -45,8 +45,8 @@ jobs:
         run: |
           INACTIVE_ENV=${{ env.INACTIVE_ENV }}
           echo "Building for inactive environment: $INACTIVE_ENV"
-          docker compose build web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
-          docker compose push web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+          docker compose build web-$INACTIVE_ENV api-$INACTIVE_ENV
+          docker compose push web-$INACTIVE_ENV api-$INACTIVE_ENV
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -64,7 +64,8 @@ jobs:
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8081 || echo 8082)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            docker compose pull web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            docker compose pull web-$INACTIVE_ENV api-$INACTIVE_ENV
+            docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
             docker compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV
             
             echo "--- Health check on inactive environment ---"

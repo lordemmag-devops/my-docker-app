@@ -37,9 +37,8 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://api-blue:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -86,9 +85,8 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://api-green:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
