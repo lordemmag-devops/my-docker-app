@@ -6,11 +6,12 @@ const redis = require('redis');
 const app = express();
 app.get('/', (req, res) => res.send('Hello from API!'));
 
-// Connect to MongoDB with error handling
-mongoose.connect('mongodb://db:27017/mydb', { 
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+// Connect to MongoDB using environment variables
+const dbUser = process.env.MONGO_INITDB_ROOT_USERNAME;
+const dbPass = process.env.MONGO_INITDB_ROOT_PASSWORD;
+const dbHost = process.env.DB_HOST || 'db';
+const mongoURI = `mongodb://${dbUser}:${dbPass}@${dbHost}:27017/mydb?authSource=admin`;
+mongoose.connect(mongoURI);
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
@@ -19,9 +20,11 @@ db.once('open', () => {
 });
 
 // Connect to Redis with error handling
-const client = redis.createClient({ 
-  host: 'cache',
-  port: 6379
+const client = redis.createClient({
+  socket: {
+    host: process.env.REDIS_HOST || 'cache',
+    port: process.env.REDIS_PORT || 6379
+  }
 });
 
 client.on('error', (err) => {
