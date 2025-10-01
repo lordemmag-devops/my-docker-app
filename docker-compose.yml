@@ -35,6 +35,9 @@ services:
         condition: service_healthy
     networks:
       - app-net
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -81,6 +84,9 @@ services:
         condition: service_healthy
     networks:
       - app-net
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -148,7 +154,7 @@ services:
       dockerfile: Dockerfile
     image: proxy-green:latest
     ports:
-      - "8080:80"
+      - "8081:80"
     networks:
       - app-net
     depends_on:

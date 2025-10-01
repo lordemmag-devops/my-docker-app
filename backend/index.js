@@ -6,7 +6,7 @@ const redis = require('redis');
 const app = express();
 app.get('/', (req, res) => res.send('Hello from API!'));
 
-// Connect to MongoDB using environment variables
+// Connect to MongoDB using environment variables from docker-compose
 const dbUser = process.env.MONGO_INITDB_ROOT_USERNAME;
 const dbPass = process.env.MONGO_INITDB_ROOT_PASSWORD;
 const dbHost = process.env.DB_HOST || 'db';
