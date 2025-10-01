@@ -1,7 +1,9 @@
 services:
 
   web-blue:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     image: web:latest
     networks:
       - app-net
@@ -22,7 +24,9 @@ services:
         max-file: "3"
 
   api-blue:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     image: api:latest
     depends_on:
       db:
@@ -43,7 +47,9 @@ services:
         max-file: "3"
 
   web-green:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     image: web:latest
     networks:
       - app-net
@@ -64,7 +70,9 @@ services:
         max-file: "3"
 
   api-green:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     image: api:latest
     depends_on:
       db:
@@ -114,7 +122,9 @@ services:
       retries: 3
 
   proxy-blue:
-    build: ./nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     image: proxy-blue:latest
     ports:
       - "80:80"
@@ -133,7 +143,9 @@ services:
         max-file: "3"
 
   proxy-green:
-    build: ./nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     image: proxy-green:latest
     ports:
       - "8080:80"
