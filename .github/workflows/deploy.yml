@@ -15,6 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4  # Latest version
         with:
+          submodules: recursive # Checkout submodules
           fetch-depth: 0  # Full history for clean builds
 
       - name: Set up Docker Buildx
