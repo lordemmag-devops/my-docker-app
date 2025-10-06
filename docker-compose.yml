@@ -1,10 +1,7 @@
 services:
 
   web-blue:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: web:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
     networks:
       - app-net
     depends_on:
@@ -24,10 +21,7 @@ services:
         max-file: "3"
 
   api-blue:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: api:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +31,7 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
       test: ["CMD", "curl", "-f", "http://api-blue:3000"]
       interval: 30s
@@ -49,10 +44,7 @@ services:
         max-file: "3"
 
   web-green:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: web:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
     networks:
       - app-net
     depends_on:
@@ -72,10 +64,7 @@ services:
         max-file: "3"
 
   api-green:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: api:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
     depends_on:
       db:
         condition: service_healthy
@@ -85,6 +74,7 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: supersecret
     healthcheck:
       test: ["CMD", "curl", "-f", "http://api-green:3000"]
       interval: 30s

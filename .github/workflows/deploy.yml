@@ -21,11 +21,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3  # Latest
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Determine active and inactive environments
         id: env
@@ -41,12 +46,14 @@ jobs:
             echo "INACTIVE_ENV=blue" >> $GITHUB_ENV
           fi
 
-      - name: Build and push images for inactive environment
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: my-docker-app
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          INACTIVE_ENV=${{ env.INACTIVE_ENV }}
-          echo "Building for inactive environment: $INACTIVE_ENV"
-          docker compose build web-$INACTIVE_ENV api-$INACTIVE_ENV
-          docker compose push web-$INACTIVE_ENV api-$INACTIVE_ENV
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -64,7 +71,7 @@ jobs:
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8081 || echo 8082)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            docker compose pull web-$INACTIVE_ENV api-$INACTIVE_ENV
+            docker compose pull 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
             docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
             docker compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV
             
