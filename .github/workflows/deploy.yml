@@ -51,8 +51,8 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG backend
-          docker build -t $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG frontend
+          docker build -t $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG ./backend
+          docker build -t $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG
           docker push $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG
 
