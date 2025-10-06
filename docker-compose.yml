@@ -1,7 +1,7 @@
 services:
 
   web-blue:
-    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest
     networks:
       - app-net
     depends_on:
@@ -21,7 +21,7 @@ services:
         max-file: "3"
 
   api-blue:
-    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest
     depends_on:
       db:
         condition: service_healthy
@@ -44,7 +44,7 @@ services:
         max-file: "3"
 
   web-green:
-    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest
     networks:
       - app-net
     depends_on:
@@ -64,7 +64,7 @@ services:
         max-file: "3"
 
   api-green:
-    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
+    image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest
     depends_on:
       db:
         condition: service_healthy

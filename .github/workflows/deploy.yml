@@ -46,14 +46,15 @@ jobs:
             echo "INACTIVE_ENV=blue" >> $GITHUB_ENV
           fi
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push images to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: my-docker-app
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG backend
+          docker build -t $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG frontend
+          docker push $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG
+          docker push $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -71,7 +72,7 @@ jobs:
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8081 || echo 8082)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            docker compose pull 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app:latest
+            docker compose pull
             docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
             docker compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV
             
