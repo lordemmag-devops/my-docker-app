@@ -55,6 +55,10 @@ jobs:
           docker build -t $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG
           docker push $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG $ECR_REGISTRY/my-docker-app-backend:latest
+          docker tag $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG $ECR_REGISTRY/my-docker-app-frontend:latest
+          docker push $ECR_REGISTRY/my-docker-app-backend:latest
+          docker push $ECR_REGISTRY/my-docker-app-frontend:latest
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -90,4 +94,4 @@ jobs:
             
             echo "Health check failed after multiple retries. Deployment aborted."
             exit 1
-# 
+#
