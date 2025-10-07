@@ -12,8 +12,9 @@ app.get('/health', (req, res) => {
 
 // Connect to MongoDB using environment variables from docker-compose
 const dbUser = process.env.MONGO_INITDB_ROOT_USERNAME;
-const dbPass = process.env.MONGO_INITDB_ROOT_PASSWORD;
 const dbHost = process.env.DB_HOST || 'db';
+const fs = require('fs');
+const dbPass = fs.readFileSync('/run/secrets/db-password', 'utf8').trim();
 const mongoURI = `mongodb://${dbUser}:${dbPass}@${dbHost}:27017/mydb?authSource=admin`;
 mongoose.connect(mongoURI);
 
