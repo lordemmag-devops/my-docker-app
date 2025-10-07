@@ -119,7 +119,6 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    image: proxy-blue:latest
     ports:
       - "80:80"
     networks:
@@ -140,7 +139,6 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    image: proxy-green:latest
     ports:
       - "8081:80"
     networks:
