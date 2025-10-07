@@ -1,15 +1,17 @@
 # Multi-Service Docker Application
 
-This project demonstrates a multi-service application built with Docker, showcasing advanced features like multi-stage builds, Docker Compose, and an automated blue-green deployment pipeline using GitHub Actions. The application simulates a real-world scenario with interconnected services, optimized for performance, reliability, and zero-downtime deployments.
+This project demonstrates a multi-service application built with Docker, showcasing advanced features like multi-stage builds, Docker Compose, an automated blue-green deployment pipeline using GitHub Actions, and comprehensive monitoring with Prometheus and Grafana. The application simulates a real-world scenario with interconnected services, optimized for performance, reliability, zero-downtime deployments, and observability.
 
 ## Project Overview
 
-The application consists of five services:
+The application consists of several services:
 - **Web Application**: A React-based frontend served via Nginx.
 - **API Service**: A Node.js Express backend handling API requests.
 - **Database**: A MongoDB instance for persistent data storage (not included in the blue-green setup for simplicity, but would use a shared, managed database in production).
 - **Cache**: A Redis instance for performance optimization.
 - **Reverse Proxy**: An Nginx server that routes incoming requests to the active "blue" or "green" environment.
+- **Prometheus**: A monitoring system that collects metrics from all services.
+- **Grafana**: A visualization tool for the metrics collected by Prometheus.
 
 ## Features
 
@@ -20,6 +22,7 @@ The application consists of five services:
 - **Volumes**: Persistent storage for MongoDB (`db-data`) and Redis (`cache-data`).
 - **Secrets**: Secure handling of sensitive data (e.g., MongoDB password via `db-password.txt`).
 - **Blue-Green Deployments**: Automated, zero-downtime deployments orchestrated by GitHub Actions.
+- **Monitoring**: Integrated Prometheus for metric collection and Grafana for dashboard visualization.
 - **Health Checks**: Monitors service availability to ensure reliability.
 - **Optimized Dockerfiles**: Reduces image sizes and build times.
 - **Logging**: Configured with log rotation to manage log file sizes.
@@ -35,6 +38,9 @@ Before running the project, ensure you have the following installed:
 
 ```plaintext
 my-docker-app/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml
 ├── backend/
 │   ├── Dockerfile
 │   ├── index.js
@@ -52,6 +58,8 @@ my-docker-app/
 │   ├── nginx.conf
 ├── docker-compose.yml
 ├── db-password.txt
+├── grafana-admin-password.txt
+├── prometheus.yml
 └── README.md
 ```
 
@@ -61,6 +69,9 @@ my-docker-app/
 - `nginx/`: Nginx reverse proxy configuration.
 - `docker-compose.yml`: Defines and orchestrates all services.
 - `db-password.txt`: Contains the MongoDB password (secret).
+- `grafana-admin-password.txt`: Contains the Grafana admin password (secret).
+- `prometheus.yml`: Prometheus configuration for scraping metrics.
+- `.github/workflows/deploy.yml`: GitHub Actions workflow for blue-green deployments.
 
 ## Setup Instructions
 
@@ -94,7 +105,11 @@ my-docker-app/
      - API: `http://localhost/api/`
    - The API should respond with "Hello from API!".
 
-5. **Stop the Application**:
+5. **Access Monitoring Dashboards**:
+   - Prometheus: `http://localhost:9090`
+   - Grafana: `http://localhost:3000` (Login with `admin` and the password from `grafana-admin-password.txt`)
+
+6. **Stop the Application**:
    ```bash
    docker compose down
    ```
@@ -109,11 +124,13 @@ The `docker-compose.yml` defines the services for the application, including sep
 - `db`: MongoDB database.
 - `cache`: Redis cache.
 - `proxy-blue` / `proxy-green`: Nginx reverse proxy instances that control which environment is live.
+- `prometheus`: Prometheus server for collecting and storing metrics.
+- `grafana`: Grafana server for visualizing metrics.
 
 Key features:
 - **Networks**: All services use the `app-net` bridge network for communication.
-- **Volumes**: `db-data` and `cache-data` ensure persistent storage.
-- **Secrets**: MongoDB password is securely passed via `db-password.txt`.
+- **Volumes**: `db-data` and `cache-data` ensure persistent storage. Prometheus and Grafana also use volumes for persistent data.
+- **Secrets**: MongoDB password is securely passed via `db-password.txt`, and Grafana admin password via `grafana-admin-password.txt`.
 - **Health Checks**: Each service has a health check to monitor status.
 - **Logging**: Configured with `json-file` driver and log rotation (`max-size: "10m"`, `max-file: "3"`).
 
@@ -162,14 +179,45 @@ http {
 }
 ```
 
+## Monitoring with Prometheus and Grafana
+
+The project includes Prometheus for collecting metrics and Grafana for visualizing them.
+
+- **Prometheus (`prometheus.yml`)**: Configured to scrape metrics from all application services (web, api, db, cache, proxy) in both blue and green environments.
+- **Grafana (`grafana-admin-password.txt`)**: Provides a dashboard interface to visualize the data collected by Prometheus. The admin password is stored in `grafana-admin-password.txt`.
+
+To access:
+- Prometheus UI: `http://localhost:9090`
+- Grafana UI: `http://localhost:3000` (Login with `admin` and the password from `grafana-admin-password.txt`)
+
+## Automated Blue-Green Deployments with GitHub Actions
+
+This project utilizes GitHub Actions for automated blue-green deployments, ensuring zero-downtime updates. The workflow is defined in `.github/workflows/deploy.yml`.
+
+**Workflow Steps:**
+1.  **Checkout Code**: Fetches the repository content.
+2.  **Set up Docker Buildx**: Configures Docker Buildx for efficient image building.
+3.  **Configure AWS Credentials & Login to ECR**: Sets up AWS access and logs into Amazon Elastic Container Registry (ECR).
+4.  **Determine Active/Inactive Environments**: Identifies which of the "blue" or "green" environments is currently serving live traffic on the remote server.
+5.  **Build, Tag, and Push Images to ECR**: Builds Docker images for the backend and frontend, tags them with the commit SHA and `latest`, and pushes them to ECR.
+6.  **Deploy to Server**: Connects to the remote server via SSH and performs the following:
+    *   Installs AWS CLI if not already present.
+    *   Logs into ECR on the server.
+    *   Pulls the latest code from the repository.
+    *   Deploys the new versions of the `web` and `api` services to the *inactive* environment.
+    *   Builds the `proxy` for the inactive environment locally on the server.
+    *   Performs health checks on the newly deployed inactive environment.
+    *   If health checks pass, traffic is switched by stopping the `proxy` of the *active* environment and starting the `proxy` of the *inactive* environment, making the new version live.
+    *   If health checks fail, the deployment is aborted, and the active environment continues to serve traffic.
 
 ## Best Practices Demonstrated
 
 - **Image Optimization**: Multi-stage builds for the frontend reduce image size.
-- **Security**: Docker secrets for sensitive data like database passwords.
-- **Reliability**: Health checks ensure services are operational.
+- **Security**: Docker secrets for sensitive data like database passwords and Grafana admin password.
+- **Reliability**: Health checks ensure services are operational and blue-green deployments provide zero-downtime updates.
 - **Scalability**: Docker Compose and networks enable easy scaling.
 - **Maintainability**: Log rotation prevents disk space issues.
+- **Observability**: Integrated monitoring with Prometheus and Grafana.
 
 ## Conclusion
 
