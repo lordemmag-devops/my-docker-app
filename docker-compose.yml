@@ -97,12 +97,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    secrets:
-      - db-password
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
-
+      MONGO_INITDB_ROOT_PASSWORD: supersecret # Use the same password as the API service
   cache:
     image: redis:latest
     volumes:
