@@ -221,4 +221,4 @@ This project utilizes GitHub Actions for automated blue-green deployments, ensur
 
 ## Conclusion
 
-This is an open source project with the link: https://roadmap.sh/projects/multiservice-docker
+This is an open source project with the link: https://roadmap.sh/projects/multiservice-docker. The project is further updated for blue-green deployment method: https://roadmap.sh/projects/blue-green-deployment.
