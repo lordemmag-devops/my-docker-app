@@ -219,6 +219,42 @@ This project utilizes GitHub Actions for automated blue-green deployments, ensur
 - **Maintainability**: Log rotation prevents disk space issues.
 - **Observability**: Integrated monitoring with Prometheus and Grafana.
 
+## Deployment Troubleshooting and Fixes
+
+During the setup and deployment of this project, several common issues were encountered and resolved within the GitHub Actions workflow (`.github/workflows/deploy.yml`). This section outlines these issues and their solutions.
+
+### 1. SSH Connection Timeout
+- **Issue**: Initial deployments failed due to SSH connection timeouts to the remote server.
+- **Resolution**: While the root cause was not explicitly identified, adding a diagnostic `nc -vz` command helped confirm connectivity. Subsequent fixes for other issues implicitly resolved this by ensuring a stable SSH environment.
+
+### 2. `docker: command not found`
+- **Issue**: The `docker` command was not found on the remote server during script execution.
+- **Resolution**: Ensured that `/usr/bin` and `/usr/local/bin` were explicitly added to the `PATH` environment variable within the SSH script, and confirmed `docker.io` was installed via `apt-get`.
+
+### 3. `cd: No such file or directory`
+- **Issue**: The `cd` command failed to change into the repository directory on the remote server.
+- **Resolution**: Verified that the `REPO_DIR` variable was correctly constructed and used, ensuring the target directory existed before attempting to `cd` into it.
+
+### 4. `docker: unknown command: docker compose`
+- **Issue**: The `docker compose` command (Docker Compose V2 syntax) was used, but the remote server had an older `docker-compose` (V1) installed.
+- **Resolution**: Initially, commands were adjusted to use `docker-compose` (V1 syntax). The long-term solution involves upgrading `docker-compose` to V2 on the server.
+
+### 5. `Permission denied` for Docker Socket
+- **Issue**: `docker-compose` commands failed with `PermissionError: [Errno 13] Permission denied` when trying to access the Docker socket.
+- **Resolution**: All `docker-compose` commands were prefixed with `sudo` to ensure they ran with sufficient privileges.
+
+### 6. `no basic auth credentials` for ECR Pull
+- **Issue**: `docker-compose pull` failed to authenticate with Amazon ECR, even after `docker login` succeeded. This was due to `sudo` not inheriting the Docker credentials.
+- **Resolution**: The `DOCKER_CONFIG` environment variable was explicitly set to point to the user's Docker configuration directory (`/home/${{ secrets.SERVER_USERNAME }}/.docker`) when running `sudo docker-compose` commands.
+
+### 7. Missing `db-password.txt`
+- **Issue**: `docker-compose up` failed because the `db-password.txt` file, used as a secret, did not exist on the remote server.
+- **Resolution**: A step was added to the deployment script to create this file with a placeholder password if it does not exist.
+
+### 8. `KeyError: 'ContainerConfig'` (Ongoing)
+- **Issue**: Encountered a `KeyError: 'ContainerConfig'` during `docker-compose up` when attempting to recreate containers, specifically `my-docker-app_web-blue_1`. This typically indicates an incompatibility between the `docker-compose` version (1.29.2) and the Docker daemon or image configuration.
+- **Current Status**: This issue is currently being addressed. The next step is to upgrade the `docker-compose` installation on the remote server to version 2.x (the `docker compose` plugin) to resolve this incompatibility.
+
 ## Conclusion
 
 This is an open source project with the link: https://roadmap.sh/projects/multiservice-docker. The project is further updated for blue-green deployment method: https://roadmap.sh/projects/blue-green-deployment.
