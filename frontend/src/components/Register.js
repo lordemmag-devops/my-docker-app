@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import config from '../config'; // Import the config file
 import './Register.css'; // We'll create this CSS file next
 
 function Register({ onRegisterSuccess }) {
@@ -6,21 +7,31 @@ function Register({ onRegisterSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!username) newErrors.username = 'Username is required';
+    if (!email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid';
+    if (!password) newErrors.password = 'Password is required';
+    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setMessage('');
+    setErrors({});
 
-    // Basic validation
-    if (!username || !email || !password) {
-      setMessage('Please fill in all fields.');
+    if (!validateForm()) {
       return;
     }
 
     try {
-      // This will be replaced with an actual API call to the backend
       console.log('Attempting to register:', { username, email, password });
-      const response = await fetch('http://localhost:3000/register', { // Assuming backend runs on port 3000
+      const response = await fetch(`${config.API_BASE_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,10 +47,19 @@ function Register({ onRegisterSuccess }) {
           onRegisterSuccess();
         }
       } else {
-        setMessage(data.message || 'Registration failed. Please try again.');
+        // Handle validation errors from the backend
+        if (data.errors) {
+          const apiErrors = {};
+          data.errors.forEach(err => {
+            apiErrors[err.path] = err.msg;
+          });
+          setErrors(apiErrors);
+        } else {
+          setMessage(data.message || 'Registration failed. Please try again.');
+        }
       }
     } catch (error) {
-      setMessage('Registration failed. Please try again.');
+      setMessage('Network error. Please try again later.');
       console.error('Registration error:', error);
     }
   };

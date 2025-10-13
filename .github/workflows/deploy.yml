@@ -125,12 +125,11 @@ jobs:
             cd "$REPO_DIR"
             git pull origin master
             
-            # Create the db-password.txt file if it doesn't exist
-            if [ ! -f "db-password.txt" ]; then
-              echo "Creating db-password.txt file..."
-              echo "secureMongoPassword123" > db-password.txt
-              chmod 600 db-password.txt
-            fi
+            # Create secret files from GitHub secrets
+            echo "${{ secrets.DB_PASSWORD }}" > db-password.txt
+            chmod 600 db-password.txt
+            echo "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" > grafana-admin-password.txt
+            chmod 600 grafana-admin-password.txt
             
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
             ACTIVE_ENV=${{ env.ACTIVE_ENV }}
@@ -155,4 +154,3 @@ jobs:
             
             echo "Health check failed after multiple retries. Deployment aborted."
             exit 1
-# test
