@@ -83,7 +83,13 @@ jobs:
             
             echo "Updating apt and installing necessary packages..."
             sudo apt-get update -y
-            sudo apt-get install -y unzip docker.io docker-compose curl
+            sudo apt-get install -y unzip docker.io curl
+            
+            # Install Docker Compose V2 (plugin)
+            echo "Installing Docker Compose V2..."
+            mkdir -p ~/.docker/cli-plugins
+            curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+            chmod +x ~/.docker/cli-plugins/docker-compose
             
             # Add the SSH user to the docker group and restart docker service
             echo "Adding user ${{ secrets.SERVER_USERNAME }} to docker group and restarting docker service..."
@@ -132,15 +138,15 @@ jobs:
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
             # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose pull
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose pull
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
             
             echo "--- Health check on inactive environment ---"
             for i in {1..12}; do
               if curl -fs "http://localhost:$INACTIVE_PORT/api/health"; then
                 echo "Health check passed! Switching traffic..."
-                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose stop proxy-$ACTIVE_ENV
+                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose stop proxy-$ACTIVE_ENV
                 exit 0
               fi
               echo "Health check attempt $i failed. Retrying in 10s..."
