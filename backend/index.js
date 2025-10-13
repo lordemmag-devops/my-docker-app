@@ -2,8 +2,15 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const redis = require('redis');
+const User = require('./models/User'); // Import User model
+const cors = require('cors'); // Import cors
 
 const app = express();
+
+// Middleware
+app.use(express.json()); // For parsing application/json
+app.use(cors()); // Enable CORS for all routes
+
 app.get('/', (req, res) => res.send('Hello from API!'));
 
 app.get('/health', (req, res) => {
@@ -40,6 +47,36 @@ client.connect().then(() => {
   console.log('Connected to Redis');
 }).catch((err) => {
   console.error('Redis connection error:', err);
+});
+
+// Registration route
+app.post('/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: 'User with that email already exists' });
+    }
+
+    user = await User.findOne({ username });
+    if (user) {
+      return res.status(400).json({ message: 'User with that username already exists' });
+    }
+
+    user = new User({
+      username,
+      email,
+      password,
+    });
+
+    await user.save();
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 app.listen(3000, () => console.log('API running on port 3000'));
