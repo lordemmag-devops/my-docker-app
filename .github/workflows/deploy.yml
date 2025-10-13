@@ -67,6 +67,11 @@ jobs:
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_REGION: us-east-1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
@@ -93,8 +98,15 @@ jobs:
               rm -rf awscliv2.zip aws
             fi
             
+            # Debug: Print environment variables to verify they are set
+            echo "DEBUG: AWS_REGION=$AWS_REGION"
+            echo "DEBUG: ECR_REGISTRY=$ECR_REGISTRY"
+            echo "DEBUG: AWS_ACCESS_KEY_ID is set: $([ -n "$AWS_ACCESS_KEY_ID" ] && echo 'YES' || echo 'NO')"
+            echo "DEBUG: AWS_SECRET_ACCESS_KEY is set: $([ -n "$AWS_SECRET_ACCESS_KEY" ] && echo 'YES' || echo 'NO')"
+            
             # Get ECR login password and perform docker login
             # The credentials will be stored in /home/${{ secrets.SERVER_USERNAME }}/.docker/config.json
+            echo "Logging in to ECR at $ECR_REGISTRY..."
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
             
             # Ensure the target directory exists and clone/pull the repository
