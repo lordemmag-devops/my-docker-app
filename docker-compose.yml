@@ -194,3 +194,6 @@ volumes:
 secrets:
   db-password:
     file: ./db-password.txt
+
+# To deploy the stack, use:
+# docker-compose -f docker-compose.yml up -d
