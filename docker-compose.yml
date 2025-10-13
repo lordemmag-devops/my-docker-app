@@ -31,6 +31,7 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     secrets:
       - db-password
     healthcheck:
@@ -75,6 +76,7 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     secrets:
       - db-password
     healthcheck:
@@ -101,6 +103,7 @@ services:
       retries: 3
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     secrets:
       - db-password
   cache:
