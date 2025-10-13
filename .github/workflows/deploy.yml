@@ -94,7 +94,15 @@ jobs:
             fi
             
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-            cd /home/ubuntu/my-docker-app
+            
+            # Ensure the target directory exists and clone/pull the repository
+            REPO_DIR="/home/${{ secrets.SERVER_USERNAME }}/my-docker-app"
+            if [ ! -d "$REPO_DIR" ]; then
+              echo "Creating repository directory $REPO_DIR and cloning..."
+              mkdir -p "$REPO_DIR"
+              git clone https://github.com/lordemmag-devops/my-docker-app.git "$REPO_DIR"
+            fi
+            cd "$REPO_DIR"
             git pull origin master
             
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
