@@ -60,6 +60,11 @@ jobs:
           docker push $ECR_REGISTRY/my-docker-app-backend:latest
           docker push $ECR_REGISTRY/my-docker-app-frontend:latest
 
+      - name: Check SSH connectivity to server
+        run: |
+          echo "Attempting to connect to ${{ secrets.SERVER_HOST }}:22"
+          nc -vz -w 10 ${{ secrets.SERVER_HOST }} 22
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         env:
