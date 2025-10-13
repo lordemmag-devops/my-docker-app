@@ -85,6 +85,11 @@ jobs:
             sudo apt-get update -y
             sudo apt-get install -y unzip docker.io docker-compose curl
             
+            # Add the SSH user to the docker group and restart docker service
+            echo "Adding user ${{ secrets.SERVER_USERNAME }} to docker group and restarting docker service..."
+            sudo usermod -aG docker ${{ secrets.SERVER_USERNAME }}
+            sudo systemctl restart docker
+            
             if ! command -v aws &> /dev/null; then
               echo "AWS CLI not found. Installing..."
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -110,15 +115,15 @@ jobs:
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8081)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            docker-compose pull
-            docker-compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
-            docker-compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            sudo docker-compose pull
+            sudo docker-compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
+            sudo docker-compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
             
             echo "--- Health check on inactive environment ---"
             for i in {1..12}; do
               if curl -fs "http://localhost:$INACTIVE_PORT/api/health"; then
                 echo "Health check passed! Switching traffic..."
-                docker-compose stop proxy-$ACTIVE_ENV
+                sudo docker-compose stop proxy-$ACTIVE_ENV
                 exit 0
               fi
               echo "Health check attempt $i failed. Retrying in 10s..."
