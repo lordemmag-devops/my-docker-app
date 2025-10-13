@@ -16,13 +16,14 @@ const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ prefix: 'node_app_' });
 
 app.get('/metrics', async (req, res) => {
+  console.log('Metrics endpoint hit');
   res.set('Content-Type', client.register.contentType);
   res.end(await client.register.metrics());
 });
 
 // Centralized error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Centralized error handler:', err.stack);
   res.status(500).send('Something broke!');
 });
 
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
+console.log('Attempting to connect to MongoDB...');
 const dbPass = fs.readFileSync('/run/secrets/db-password', 'utf8').trim();
 const mongoURIWithPass = config.mongoURI.replace('${process.env.MONGO_INITDB_ROOT_PASSWORD}', dbPass);
 
@@ -46,18 +48,19 @@ db.once('open', () => {
 });
 
 // Connect to Redis
-const client = redis.createClient({
+console.log('Attempting to connect to Redis...');
+const redisClient = redis.createClient({ // Renamed client to redisClient to avoid conflict with prom-client
   socket: {
     host: config.redis.host,
     port: config.redis.port
   }
 });
 
-client.on('error', (err) => {
+redisClient.on('error', (err) => {
   console.error('Redis error:', err);
 });
 
-client.connect().then(() => {
+redisClient.connect().then(() => {
   console.log('Connected to Redis');
 }).catch((err) => {
   console.error('Redis connection error:', err);
@@ -68,6 +71,7 @@ client.connect().then(() => {
 app.get('/', (req, res) => res.send('Hello from API!'));
 
 app.get('/health', async (req, res) => {
+  console.log('Health check endpoint hit');
   const healthcheck = {};
   try {
     // Check MongoDB connection
@@ -79,7 +83,7 @@ app.get('/health', async (req, res) => {
 
   try {
     // Check Redis connection
-    await client.ping();
+    await redisClient.ping(); // Use redisClient here
     healthcheck.redis = 'OK';
   } catch (e) {
     healthcheck.redis = 'Error: ' + e.message;
