@@ -67,11 +67,6 @@ jobs:
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          AWS_REGION: us-east-1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
@@ -98,6 +93,8 @@ jobs:
               rm -rf awscliv2.zip aws
             fi
             
+            # Get ECR login password and perform docker login
+            # The credentials will be stored in /home/${{ secrets.SERVER_USERNAME }}/.docker/config.json
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
             
             # Ensure the target directory exists and clone/pull the repository
@@ -115,15 +112,16 @@ jobs:
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8081)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            sudo docker-compose pull
-            sudo docker-compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
-            sudo docker-compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose pull
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose up -d --no-deps web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
             
             echo "--- Health check on inactive environment ---"
             for i in {1..12}; do
               if curl -fs "http://localhost:$INACTIVE_PORT/api/health"; then
                 echo "Health check passed! Switching traffic..."
-                sudo docker-compose stop proxy-$ACTIVE_ENV
+                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker-compose stop proxy-$ACTIVE_ENV
                 exit 0
               fi
               echo "Health check attempt $i failed. Retrying in 10s..."
