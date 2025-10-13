@@ -81,22 +81,30 @@ my-docker-app/
    cd my-docker-app
    ```
 
-2. **Create the MongoDB Password Secret**:
-   - In the main project folder, create `db-password.txt`:
+2. **Create Secret Files**:
+   - In the main project folder, create `db-password.txt` for the MongoDB password:
      ```bash
      echo "supersecret" > db-password.txt
      ```
-   - Replace "supersecret" with a secure password for production.
+   - Create `grafana-admin-password.txt` for the Grafana admin password:
+     ```bash
+     echo "anothersecret" > grafana-admin-password.txt
+     ```
+   - **Important**: Replace "supersecret" and "anothersecret" with strong, unique passwords, especially for production environments.
 
 3. **Build and Run the Application**:
-   - From the main project folder:
+   - From the main project folder, execute the following command to build and start all services in the background:
      ```bash
-     docker compose up -d
+     docker compose up -d --build
      ```
-   - This builds and starts all services in the background.
-   - To view logs:
+   - The `--build` flag ensures that your Docker images are rebuilt, incorporating any changes you might have made to the Dockerfiles or application code.
+   - To view logs for all services:
      ```bash
      docker compose logs
+     ```
+   - To view logs for a specific service (e.g., `backend`):
+     ```bash
+     docker compose logs backend
      ```
 
 4. **Access the Application**:
