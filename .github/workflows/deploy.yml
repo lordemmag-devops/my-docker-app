@@ -119,6 +119,13 @@ jobs:
             cd "$REPO_DIR"
             git pull origin master
             
+            # Create the db-password.txt file if it doesn't exist
+            if [ ! -f "db-password.txt" ]; then
+              echo "Creating db-password.txt file..."
+              echo "secureMongoPassword123" > db-password.txt
+              chmod 600 db-password.txt
+            fi
+            
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
             ACTIVE_ENV=${{ env.ACTIVE_ENV }}
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8081)
