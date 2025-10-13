@@ -31,7 +31,8 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: supersecret
+    secrets:
+      - db-password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://api-blue:3000"]
       interval: 30s
@@ -74,7 +75,8 @@ services:
       - app-net
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: supersecret
+    secrets:
+      - db-password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://api-green:3000"]
       interval: 30s
@@ -99,7 +101,8 @@ services:
       retries: 3
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: supersecret # Use the same password as the API service
+    secrets:
+      - db-password
   cache:
     image: redis:latest
     volumes:
@@ -175,7 +178,9 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin  # Change in production
+      - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana-admin-password
+    secrets:
+      - grafana-admin-password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -194,6 +199,8 @@ volumes:
 secrets:
   db-password:
     file: ./db-password.txt
+  grafana-admin-password:
+    file: ./grafana-admin-password.txt
 
 # To deploy the stack, use:
 # docker-compose -f docker-compose.yml up -d
