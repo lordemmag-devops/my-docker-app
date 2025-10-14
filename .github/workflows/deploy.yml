@@ -163,5 +163,7 @@ jobs:
             echo "Health check failed after multiple retries. Deployment aborted."
             echo "--- Logs from failing api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
+            echo "--- Logs from db service ---"
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
             exit 1
 # test.
