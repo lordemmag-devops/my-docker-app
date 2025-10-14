@@ -162,3 +162,4 @@ jobs:
             echo "--- Logs from failing api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
             exit 1
+# test.
