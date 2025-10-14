@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import config from '../config'; // Import the config file
 import './Register.css'; // We'll create this CSS file next
 
-function Register({ onRegisterSuccess }) {
+function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -105,6 +105,16 @@ function Register({ onRegisterSuccess }) {
         </div>
         <button type="submit" className="register-button">Register</button>
         {message && <p className="register-message">{message}</p>}
+        <p className="switch-link">
+          Already have an account?{' '}
+          <button
+            type="button"
+            className="link-button"
+            onClick={onSwitchToLogin}
+          >
+            Login here
+          </button>
+        </p>
       </form>
     </div>
   );

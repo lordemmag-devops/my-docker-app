@@ -17,10 +17,32 @@
   background: linear-gradient(to right, #6a11cb 0%, #2575fc 100%); /* Gradient header */
   color: white;
   padding: 18px 20px; /* More padding */
-  text-align: center;
   font-size: 1.5em; /* Larger font */
   font-weight: 600; /* Bolder text */
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.logout-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .chat-messages {
@@ -42,7 +64,7 @@
   font-size: 0.95em;
 }
 
-.message.user {
+.message.own {
   background-color: #e0f7fa; /* Light blue for user messages */
   color: #004d40;
   align-self: flex-end;
