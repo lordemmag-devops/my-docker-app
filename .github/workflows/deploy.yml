@@ -139,9 +139,11 @@ jobs:
             # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
             # First, ensure all shared services like db and cache are running
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d db cache prometheus grafana
+            echo "Waiting for the database to be healthy..."
+            sleep 30 # Wait for the database to be ready
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose pull
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d --no-deps --force-recreate web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d --force-recreate web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
             
             echo "--- Logs from api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
