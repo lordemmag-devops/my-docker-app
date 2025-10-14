@@ -141,6 +141,16 @@ jobs:
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d db cache prometheus grafana
             echo "Waiting for the database to be healthy..."
             sleep 30 # Wait for the database to be ready
+
+            echo "--- Initial logs from db service ---"
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
+            echo "--- End of logs from db service ---"
+
+            if ! sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose ps db | grep -q "Up"; then
+              echo "Database container is not running. Showing additional logs..."
+              sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
+              exit 1
+            fi
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose pull
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d --force-recreate web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
