@@ -30,6 +30,8 @@ services:
     networks:
       - app-net
     environment:
+      MONGO_URL: mongodb://db:27017/mydatabase
+      DB_NAME: mydatabase
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     secrets:
@@ -75,6 +77,8 @@ services:
     networks:
       - app-net
     environment:
+      MONGO_URL: mongodb://db:27017/mydatabase
+      DB_NAME: mydatabase
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db-password
     secrets:
