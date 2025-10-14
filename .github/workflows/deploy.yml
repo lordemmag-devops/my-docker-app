@@ -131,9 +131,9 @@ jobs:
 
             # Create secret files from GitHub secrets
             echo "${{ secrets.DB_PASSWORD }}" > db-password.txt
-            chmod 600 db-password.txt
+            chmod 644 db-password.txt
             echo "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" > grafana-admin-password.txt
-            chmod 600 grafana-admin-password.txt
+            chmod 644 grafana-admin-password.txt
             
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
             ACTIVE_ENV=${{ env.ACTIVE_ENV }}
