@@ -3,11 +3,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const redis = require('redis');
 const { body, validationResult } = require('express-validator');
-const User = require('./models/User');
+const { User, Message } = require('./models/User');
 const cors = require('cors');
 const config = require('./config');
 const fs = require('fs');
 const client = require('prom-client'); // Import prom-client
+const jwt = require('jsonwebtoken');
 
 const app = express();
 
@@ -96,6 +97,27 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here'; // In production, use environment variable
+
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
 // Registration route with validation
 app.post(
   '/register',
@@ -137,5 +159,72 @@ app.post(
     }
   }
 );
+
+// Login route
+app.post('/login', async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid username or password' });
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Invalid username or password' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({ message: 'Login successful', token, user: { id: user._id, username: user.username } });
+  } catch (error) {
+    console.error('Login error:', error);
+    next(error);
+  }
+});
+
+// Send message route (protected)
+app.post('/messages', authenticateToken, async (req, res, next) => {
+  try {
+    const { text } = req.body;
+    const senderId = req.user.userId;
+
+    if (!text.trim()) {
+      return res.status(400).json({ message: 'Message text is required' });
+    }
+
+    const message = new Message({
+      sender: senderId,
+      text: text.trim(),
+    });
+
+    await message.save();
+
+    // Populate sender info
+    await message.populate('sender', 'username');
+
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('Send message error:', error);
+    next(error);
+  }
+});
+
+// Get messages route (protected)
+app.get('/messages', authenticateToken, async (req, res, next) => {
+  try {
+    const messages = await Message.find()
+      .populate('sender', 'username')
+      .sort({ timestamp: 1 })
+      .limit(100); // Limit to last 100 messages for simplicity
+
+    res.json(messages);
+  } catch (error) {
+    console.error('Get messages error:', error);
+    next(error);
+  }
+});
 
 app.listen(config.port, () => console.log(`API running on port ${config.port}`));

@@ -80,3 +80,22 @@
   font-weight: 500;
   color: #d32f2f; /* Error color */
 }
+
+.switch-link {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #555;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: #0056b3;
+}

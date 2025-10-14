@@ -35,4 +35,28 @@ UserSchema.pre('save', async function(next) {
   next();
 });
 
-module.exports = mongoose.model('User', UserSchema);
+// Method to compare passwords
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+const MessageSchema = new mongoose.Schema({
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  text: {
+    type: String,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+module.exports = {
+  User: mongoose.model('User', UserSchema),
+  Message: mongoose.model('Message', MessageSchema),
+};
