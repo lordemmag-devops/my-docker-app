@@ -123,8 +123,12 @@ jobs:
               git clone https://github.com/lordemmag-devops/my-docker-app.git "$REPO_DIR"
             fi
             cd "$REPO_DIR"
+
+            # Remove any local secret files that might conflict with the merge
+            rm -f db-password.txt grafana-admin-password.txt
+
             git pull origin master
-            
+
             # Create secret files from GitHub secrets
             echo "${{ secrets.DB_PASSWORD }}" > db-password.txt
             chmod 600 db-password.txt
