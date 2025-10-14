@@ -180,4 +180,4 @@ jobs:
             echo "--- Logs from db service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
             exit 1
-# test.
+
