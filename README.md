@@ -263,6 +263,34 @@ During the setup and deployment of this project, several common issues were enco
 - **Issue**: Encountered a `KeyError: 'ContainerConfig'` during `docker-compose up` when attempting to recreate containers, specifically `my-docker-app_web-blue_1`. This typically indicates an incompatibility between the `docker-compose` version (1.29.2) and the Docker daemon or image configuration.
 - **Current Status**: This issue is currently being addressed. The next step is to upgrade the `docker-compose` installation on the remote server to version 2.x (the `docker compose` plugin) to resolve this incompatibility.
 
+## Kubernetes Deployment
+
+To deploy the application to a Kubernetes cluster, you can use the manifests provided in the `k8s` directory.
+
+### Prerequisites
+
+- A running Kubernetes cluster.
+- `kubectl` command-line tool installed and configured to communicate with your cluster.
+
+### Deployment Steps
+
+1. **Apply the manifests:**
+   ```bash
+   kubectl apply -k k8s/
+   ```
+
+2. **Verify the deployment:**
+   ```bash
+   kubectl get all
+   ```
+
+3. **Access the application:**
+   - Get the IP address of the ingress controller:
+     ```bash
+     kubectl get ingress
+     ```
+   - Access the application using the IP address of the ingress controller.
+
 ## Conclusion
 
 This is an open source project with the link: https://roadmap.sh/projects/multiservice-docker. The project is further updated for blue-green deployment method: https://roadmap.sh/projects/blue-green-deployment.
