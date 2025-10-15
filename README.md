@@ -112,7 +112,7 @@ my-docker-app/
 
 ### Access the Application
 
-- **Frontend**: http://localhost:3001
+- **Frontend**: http://localhost:3003
 - **API**: http://localhost/api/
 - **Monitoring**:
   - Prometheus: http://localhost:9090
