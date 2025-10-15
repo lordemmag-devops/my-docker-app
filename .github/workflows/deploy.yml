@@ -66,21 +66,17 @@ jobs:
           nc -vz -w 10 ${{ secrets.SERVER_HOST }} 22
 
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.0.3 # Pin to a specific version
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           AWS_REGION: us-east-1
-          ACTIVE_ENV: ${{ env.ACTIVE_ENV }}
-          INACTIVE_ENV: ${{ env.INACTIVE_ENV }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 300s
-          command_timeout: 1800s
-          envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,ECR_REGISTRY,AWS_REGION,ACTIVE_ENV,INACTIVE_ENV
+          envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,ECR_REGISTRY,AWS_REGION
           script: |
             set -e # Exit immediately if a command exits with a non-zero status.
             export PATH=$PATH:/usr/bin:/usr/local/bin # Ensure docker is in PATH
@@ -105,8 +101,6 @@ jobs:
               echo "Adding user to docker group..."
               sudo usermod -aG docker ${{ secrets.SERVER_USERNAME }}
               sudo systemctl restart docker
-              # Re-login to apply group changes
-              exec sudo -u ${{ secrets.SERVER_USERNAME }} -i $0
             fi
             
             if ! command -v aws &> /dev/null; then
@@ -148,7 +142,8 @@ jobs:
             echo "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" > grafana-admin-password.txt
             chmod 644 grafana-admin-password.txt
             
-            # Use environment variables passed from GitHub Actions
+            INACTIVE_ENV=${{ env.INACTIVE_ENV }}
+            ACTIVE_ENV=${{ env.ACTIVE_ENV }}
             INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8080)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
