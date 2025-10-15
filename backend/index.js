@@ -34,10 +34,7 @@ app.use(cors());
 
 // Connect to MongoDB
 console.log('Attempting to connect to MongoDB...');
-const dbPass = fs.readFileSync('/run/secrets/db-password', 'utf8').trim();
-const mongoURIWithPass = config.mongoURI.replace('${process.env.MONGO_INITDB_ROOT_PASSWORD}', dbPass);
-
-mongoose.connect(mongoURIWithPass);
+mongoose.connect(config.mongoURI);
 
 const db = mongoose.connection;
 db.on('error', (err) => {
