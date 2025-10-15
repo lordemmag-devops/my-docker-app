@@ -60,13 +60,36 @@ jobs:
           docker push $ECR_REGISTRY/my-docker-app-backend:latest
           docker push $ECR_REGISTRY/my-docker-app-frontend:latest
 
-      - name: Check SSH connectivity to server
+      - name: Check and start EC2 instance if needed
         run: |
-          echo "Attempting to connect to ${{ secrets.SERVER_HOST }}:22"
-          timeout 30 nc -vz ${{ secrets.SERVER_HOST }} 22 || {
-            echo "SSH connection failed. Server may be down or unreachable."
-            exit 1
-          }
+          # Check if instance is running
+          INSTANCE_STATE=$(aws ec2 describe-instances --filters "Name=ip-address,Values=${{ secrets.SERVER_HOST }}" --query 'Reservations[0].Instances[0].State.Name' --output text)
+          
+          if [ "$INSTANCE_STATE" = "stopped" ]; then
+            echo "Instance is stopped. Starting it..."
+            INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=ip-address,Values=${{ secrets.SERVER_HOST }}" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+            aws ec2 start-instances --instance-ids $INSTANCE_ID
+            aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+            echo "Instance started successfully"
+          elif [ "$INSTANCE_STATE" = "running" ]; then
+            echo "Instance is already running"
+          else
+            echo "Instance state: $INSTANCE_STATE"
+          fi
+          
+          # Wait for SSH to be available
+          echo "Waiting for SSH to be available..."
+          for i in {1..30}; do
+            if timeout 10 nc -z ${{ secrets.SERVER_HOST }} 22; then
+              echo "SSH is now available"
+              exit 0
+            fi
+            echo "Attempt $i: SSH not ready, waiting 10s..."
+            sleep 10
+          done
+          
+          echo "SSH connection failed after 5 minutes. Server may be unreachable."
+          exit 1
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
