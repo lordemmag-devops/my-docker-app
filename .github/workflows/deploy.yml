@@ -81,20 +81,27 @@ jobs:
             set -e # Exit immediately if a command exits with a non-zero status.
             export PATH=$PATH:/usr/bin:/usr/local/bin # Ensure docker is in PATH
             
-            echo "Updating apt and installing necessary packages..."
-            sudo apt-get update -y
-            sudo apt-get install -y unzip docker.io curl
+            # Skip apt update if packages already installed
+            if ! command -v docker &> /dev/null || ! command -v unzip &> /dev/null; then
+              echo "Installing missing packages..."
+              sudo apt-get update -qq
+              sudo apt-get install -y unzip docker.io curl
+            fi
             
-            # Install Docker Compose V2 (plugin)
-            echo "Installing Docker Compose V2..."
-            mkdir -p ~/.docker/cli-plugins
-            curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
-            chmod +x ~/.docker/cli-plugins/docker-compose
+            # Install Docker Compose V2 only if not present
+            if [ ! -f ~/.docker/cli-plugins/docker-compose ]; then
+              echo "Installing Docker Compose V2..."
+              mkdir -p ~/.docker/cli-plugins
+              curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+              chmod +x ~/.docker/cli-plugins/docker-compose
+            fi
             
-            # Add the SSH user to the docker group and restart docker service
-            echo "Adding user ${{ secrets.SERVER_USERNAME }} to docker group and restarting docker service..."
-            sudo usermod -aG docker ${{ secrets.SERVER_USERNAME }}
-            sudo systemctl restart docker
+            # Add user to docker group if not already added
+            if ! groups ${{ secrets.SERVER_USERNAME }} | grep -q docker; then
+              echo "Adding user to docker group..."
+              sudo usermod -aG docker ${{ secrets.SERVER_USERNAME }}
+              sudo systemctl restart docker
+            fi
             
             if ! command -v aws &> /dev/null; then
               echo "AWS CLI not found. Installing..."
@@ -137,27 +144,24 @@ jobs:
             
             INACTIVE_ENV=${{ env.INACTIVE_ENV }}
             ACTIVE_ENV=${{ env.ACTIVE_ENV }}
-            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8081)
+            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8080)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
             # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
-            # First, ensure all shared services like db and cache are running
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d db cache prometheus grafana
-            echo "Waiting for the database to be healthy..."
-            sleep 30 # Wait for the database to be ready
-
-            echo "--- Initial logs from db service ---"
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
-            echo "--- End of logs from db service ---"
-
-            if ! sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose ps db | grep -q "Up"; then
-              echo "Database container is not running. Showing additional logs..."
-              sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
-              exit 1
-            fi
+            # Start shared services first
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d db cache
+            echo "Waiting for database to start..."
+            sleep 15
+            
+            # Pull and build images
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose pull
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV # Build proxy locally on the server
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d --force-recreate web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV
+            
+            # Deploy inactive environment
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            
+            # Start monitoring services
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d prometheus grafana
             
             echo "--- Logs from api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
