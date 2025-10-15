@@ -30,19 +30,24 @@ app.use((err, req, res, next) => {
 
 // Middleware
 app.use(express.json());
-app.use(cors());
 
-// Connect to MongoDB
-console.log('Attempting to connect to MongoDB...');
+// CORS configuration
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3003', // Allow your frontend origin
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
+app.use(cors(corsOptions));
+
 const dbPass = fs.readFileSync('/run/secrets/db-password', 'utf8').trim();
-const mongoURIWithPass = config.mongoURI.replace('${process.env.MONGO_INITDB_ROOT_PASSWORD}', dbPass);
+const mongoURI = `mongodb://admin:${dbPass}@db:27017`;
 
-mongoose.connect(mongoURIWithPass);
+mongoose.connect(mongoURI);
 
 const db = mongoose.connection;
 db.on('error', (err) => {
   console.error('MongoDB connection error:', err);
-  process.exit(1); // Exit process on MongoDB connection error
+  // Don't exit, keep trying to reconnect
 });
 db.once('open', () => {
   console.log('Connected to MongoDB');
@@ -65,7 +70,7 @@ redisClient.connect().then(() => {
   console.log('Connected to Redis');
 }).catch((err) => {
   console.error('Redis connection error:', err);
-  process.exit(1); // Exit process on Redis connection error
+  // Don't exit, keep trying to reconnect
 });
 
 // Routes
