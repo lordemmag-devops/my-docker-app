@@ -46,6 +46,13 @@ jobs:
             echo "INACTIVE_ENV=blue" >> $GITHUB_ENV
           fi
 
+      - name: Create ECR repositories if they don't exist
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          aws ecr describe-repositories --repository-names my-docker-app-backend || aws ecr create-repository --repository-name my-docker-app-backend
+          aws ecr describe-repositories --repository-names my-docker-app-frontend || aws ecr create-repository --repository-name my-docker-app-frontend
+
       - name: Build, tag, and push images to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -173,7 +180,7 @@ jobs:
             chmod 644 grafana-admin-password.txt
             
             # Use environment variables passed from GitHub Actions
-            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 80 || echo 8080)
+            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8080 || echo 80)
             
             echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
             # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
@@ -192,6 +199,9 @@ jobs:
             # Start monitoring services
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d prometheus grafana
             
+            echo "Waiting for services to start..."
+            sleep 30
+            
             echo "--- Logs from api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
             echo "--- End of logs from api-$INACTIVE_ENV service ---"
@@ -200,17 +210,31 @@ jobs:
             for i in {1..12}; do
               if curl -fs "http://localhost:$INACTIVE_PORT/api/health"; then
                 echo "Health check passed! Switching traffic..."
+                
+                # Stop active proxy to switch traffic
                 sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose stop proxy-$ACTIVE_ENV
+                
+                # Clean up old containers
+                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose rm -f web-$ACTIVE_ENV api-$ACTIVE_ENV
+                
+                echo "Traffic successfully switched to $INACTIVE_ENV environment"
                 exit 0
               fi
               echo "Health check attempt $i failed. Retrying in 10s..."
               sleep 10
             done
             
-            echo "Health check failed after multiple retries. Deployment aborted."
+            echo "Health check failed after multiple retries. Rolling back..."
+            
+            # Rollback: stop failed deployment
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose stop web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose rm -f web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            
             echo "--- Logs from failing api-$INACTIVE_ENV service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
             echo "--- Logs from db service ---"
             sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
+            
+            echo "Deployment failed and rolled back. Active environment remains: $ACTIVE_ENV"
             exit 1
 
