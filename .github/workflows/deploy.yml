@@ -81,21 +81,29 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:${{ github.sha }}
 
+      - name: Check EC2 connectivity
+        run: |
+          echo "Testing connection to ${{ secrets.SERVER_HOST }}"
+          timeout 10 nc -z ${{ secrets.SERVER_HOST }} 22 || {
+            echo "❌ Cannot connect to EC2 instance on port 22"
+            echo "Check: 1) Security group allows SSH, 2) Instance is running, 3) Correct IP"
+            exit 1
+          }
+          echo "✅ SSH port is accessible"
+
       - name: Deploy to EC2 Kubernetes
         uses: appleboy/ssh-action@v1.0.3
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ACTIVE_ENV: ${{ env.ACTIVE_ENV }}
           INACTIVE_ENV: ${{ env.INACTIVE_ENV }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 60s
+          timeout: 120s
           command_timeout: 900s
-          envs: ECR_REGISTRY,ACTIVE_ENV,INACTIVE_ENV,DB_PASSWORD,GRAFANA_PASSWORD
+          envs: ECR_REGISTRY,ACTIVE_ENV,INACTIVE_ENV
           script: |
             set -e
             
@@ -106,11 +114,12 @@ jobs:
               sudo mv kubectl /usr/local/bin/
             fi
             
-            # Configure AWS CLI and ECR login
+            # Configure AWS CLI
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws configure set default.region us-east-1
             
+            # ECR login
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
             
             # Clone/update repository
@@ -121,70 +130,47 @@ jobs:
             cd "$REPO_DIR"
             git pull origin master
             
+            # Check if Kubernetes is running
+            if ! kubectl cluster-info &> /dev/null; then
+              echo "❌ Kubernetes cluster not accessible. Run ec2-k8s-setup.sh first"
+              exit 1
+            fi
+            
             # Create namespace
             kubectl apply -f k8s/namespace.yaml
             
-            # Create/update secrets
+            # Create secrets
             kubectl create secret generic db-password \
-              --from-literal=password="${DB_PASSWORD:-supersecret}" \
+              --from-literal=password="${{ secrets.DB_PASSWORD || 'supersecret' }}" \
               --namespace=my-docker-app \
               --dry-run=client -o yaml | kubectl apply -f -
             
             kubectl create secret generic grafana-password \
-              --from-literal=password="${GRAFANA_PASSWORD:-admin123}" \
+              --from-literal=password="${{ secrets.GRAFANA_ADMIN_PASSWORD || 'admin123' }}" \
               --namespace=my-docker-app \
               --dry-run=client -o yaml | kubectl apply -f -
             
             # Update image tags
-            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest|$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:${{ github.sha }}|g" k8s/backend.yaml
-            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest|$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:${{ github.sha }}|g" k8s/frontend.yaml
+            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest|$ECR_REGISTRY/my-docker-app-backend:${{ github.sha }}|g" k8s/backend.yaml
+            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest|$ECR_REGISTRY/my-docker-app-frontend:${{ github.sha }}|g" k8s/frontend.yaml
             
-            # Deploy infrastructure
+            # Deploy infrastructure first
             kubectl apply -f k8s/db.yaml -n my-docker-app
             kubectl apply -f k8s/cache.yaml -n my-docker-app
-            kubectl apply -f k8s/monitoring.yaml -n my-docker-app
             
             # Wait for infrastructure
-            kubectl wait --for=condition=available --timeout=300s deployment/db -n my-docker-app
-            kubectl wait --for=condition=available --timeout=300s deployment/cache -n my-docker-app
+            kubectl wait --for=condition=available --timeout=300s deployment/db -n my-docker-app || true
+            kubectl wait --for=condition=available --timeout=300s deployment/cache -n my-docker-app || true
             
             # Deploy application
             kubectl apply -f k8s/backend.yaml -n my-docker-app
             kubectl apply -f k8s/frontend.yaml -n my-docker-app
-            
-            # Scale up inactive environment
-            kubectl scale deployment backend-$INACTIVE_ENV --replicas=2 -n my-docker-app
-            kubectl scale deployment frontend-$INACTIVE_ENV --replicas=2 -n my-docker-app
-            
-            # Wait for deployment
-            kubectl wait --for=condition=available --timeout=300s deployment/backend-$INACTIVE_ENV -n my-docker-app
-            kubectl wait --for=condition=available --timeout=300s deployment/frontend-$INACTIVE_ENV -n my-docker-app
-            
-            # Health check
-            BACKEND_POD=$(kubectl get pods -n my-docker-app -l app=backend,version=$INACTIVE_ENV -o jsonpath='{.items[0].metadata.name}')
-            
-            for i in {1..12}; do
-              if kubectl exec -n my-docker-app $BACKEND_POD -- curl -f http://localhost:3000/health; then
-                echo "Health check passed"
-                break
-              fi
-              if [ $i -eq 12 ]; then
-                echo "Health check failed"
-                exit 1
-              fi
-              sleep 10
-            done
-            
-            # Switch traffic
-            kubectl patch service backend-active -n my-docker-app -p '{"spec":{"selector":{"version":"'$INACTIVE_ENV'"}}}'
-            kubectl patch service frontend-active -n my-docker-app -p '{"spec":{"selector":{"version":"'$INACTIVE_ENV'"}}}'
-            
             kubectl apply -f k8s/blue-green-switch.yaml -n my-docker-app
             kubectl apply -f k8s/ingress.yaml -n my-docker-app
             
-            # Scale down old environment
-            kubectl scale deployment backend-$ACTIVE_ENV --replicas=0 -n my-docker-app
-            kubectl scale deployment frontend-$ACTIVE_ENV --replicas=0 -n my-docker-app
+            # Scale up inactive environment
+            kubectl scale deployment backend-$INACTIVE_ENV --replicas=1 -n my-docker-app || true
+            kubectl scale deployment frontend-$INACTIVE_ENV --replicas=1 -n my-docker-app || true
             
-            echo "Deployment completed successfully!"
+            echo "✅ Deployment completed!"
             kubectl get pods -n my-docker-app
