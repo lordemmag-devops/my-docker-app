@@ -1,10 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- secrets.yaml
 - backend.yaml
 - frontend.yaml
 - db.yaml
 - cache.yaml
 - nginx.yaml
+- monitoring.yaml
+- blue-green-switch.yaml
 - ingress.yaml
+
+namespace: my-docker-app
+
+commonLabels:
+  app.kubernetes.io/name: my-docker-app
+  app.kubernetes.io/version: v1.0.0

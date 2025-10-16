@@ -1,0 +1,28 @@
+# Blue-Green Deployment Switch Script
+# This file contains the service selector configurations for blue-green deployment
+---
+# Active Backend Service (Blue by default)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-active
+spec:
+  selector:
+    app: backend
+    version: blue  # Change to 'green' to switch traffic
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+# Active Frontend Service (Blue by default)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-active
+spec:
+  selector:
+    app: frontend
+    version: blue  # Change to 'green' to switch traffic
+  ports:
+  - port: 80
+    targetPort: 80
