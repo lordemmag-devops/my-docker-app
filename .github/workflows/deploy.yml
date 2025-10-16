@@ -1,240 +1,190 @@
-name: Deploy Blue-Green
+name: Deploy to EC2 Kubernetes with Blue-Green Strategy
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_BACKEND: my-docker-app-backend
+  ECR_REPOSITORY_FRONTEND: my-docker-app-frontend
 
 jobs:
-  deploy:
+  determine-environment:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./  # Ensures commands run in project root
+    outputs:
+      active_env: ${{ steps.check-env.outputs.active_env }}
+      inactive_env: ${{ steps.check-env.outputs.inactive_env }}
+    steps:
+      - name: Determine active environment
+        id: check-env
+        run: |
+          COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+          HASH_NUM=$(echo "$COMMIT_HASH" | tr -d 'a-f' | head -c1)
+          
+          if [ -z "$HASH_NUM" ]; then
+            HASH_NUM=0
+          fi
+          
+          if [ $((HASH_NUM % 2)) -eq 0 ]; then
+            echo "active_env=blue" >> $GITHUB_OUTPUT
+            echo "inactive_env=green" >> $GITHUB_OUTPUT
+          else
+            echo "active_env=green" >> $GITHUB_OUTPUT
+            echo "inactive_env=blue" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-deploy:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    
+    env:
+      ACTIVE_ENV: ${{ needs.determine-environment.outputs.active_env }}
+      INACTIVE_ENV: ${{ needs.determine-environment.outputs.inactive_env }}
+    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  # Latest version
-        with:
-          submodules: recursive # Checkout submodules
-          fetch-depth: 0  # Full history for clean builds
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4 # Use v4
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
+      - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2 # Use v2
-
-      - name: Determine active and inactive environments
-        id: env
-        run: |
-          echo "${{ secrets.SERVER_SSH_KEY }}" > private_key && chmod 600 private_key
-          # Check which proxy is mapped to port 80 on the server to determine the active color.
-          # Fallback to 'green' if the check fails (e.g., first deployment).
-          if ssh -o StrictHostKeyChecking=no -i private_key ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} "docker ps --filter 'publish=80' --format '{{.Names}}' | grep -q 'blue'"; then
-            echo "ACTIVE_ENV=blue" >> $GITHUB_ENV
-            echo "INACTIVE_ENV=green" >> $GITHUB_ENV
-          else
-            echo "ACTIVE_ENV=green" >> $GITHUB_ENV
-            echo "INACTIVE_ENV=blue" >> $GITHUB_ENV
-          fi
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Create ECR repositories if they don't exist
+        run: |
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY_BACKEND || \
+            aws ecr create-repository --repository-name $ECR_REPOSITORY_BACKEND
+          
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY_FRONTEND || \
+            aws ecr create-repository --repository-name $ECR_REPOSITORY_FRONTEND
+
+      - name: Build and push Docker images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          aws ecr describe-repositories --repository-names my-docker-app-backend || aws ecr create-repository --repository-name my-docker-app-backend
-          aws ecr describe-repositories --repository-names my-docker-app-frontend || aws ecr create-repository --repository-name my-docker-app-frontend
-
-      - name: Build, tag, and push images to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG ./backend
-          docker build -t $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG ./frontend
-          docker push $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG
-          docker push $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG
-          docker tag $ECR_REGISTRY/my-docker-app-backend:$IMAGE_TAG $ECR_REGISTRY/my-docker-app-backend:latest
-          docker tag $ECR_REGISTRY/my-docker-app-frontend:$IMAGE_TAG $ECR_REGISTRY/my-docker-app-frontend:latest
-          docker push $ECR_REGISTRY/my-docker-app-backend:latest
-          docker push $ECR_REGISTRY/my-docker-app-frontend:latest
-
-      - name: Check and start EC2 instance if needed
-        run: |
-          # Check if instance is running
-          INSTANCE_STATE=$(aws ec2 describe-instances --filters "Name=ip-address,Values=${{ secrets.SERVER_HOST }}" --query 'Reservations[0].Instances[0].State.Name' --output text)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest ./backend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:${{ github.sha }} ./backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:${{ github.sha }}
           
-          if [ "$INSTANCE_STATE" = "stopped" ]; then
-            echo "Instance is stopped. Starting it..."
-            INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=ip-address,Values=${{ secrets.SERVER_HOST }}" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-            aws ec2 start-instances --instance-ids $INSTANCE_ID
-            aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-            echo "Instance started successfully"
-          elif [ "$INSTANCE_STATE" = "running" ]; then
-            echo "Instance is already running"
-          else
-            echo "Instance state: $INSTANCE_STATE"
-          fi
-          
-          # Wait for SSH to be available
-          echo "Waiting for SSH to be available..."
-          for i in {1..30}; do
-            if timeout 10 nc -z ${{ secrets.SERVER_HOST }} 22; then
-              echo "SSH is now available"
-              exit 0
-            fi
-            echo "Attempt $i: SSH not ready, waiting 10s..."
-            sleep 10
-          done
-          
-          echo "SSH connection failed after 5 minutes. Server may be unreachable."
-          exit 1
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest ./frontend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:${{ github.sha }} ./frontend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:${{ github.sha }}
 
-      - name: Deploy to server
+      - name: Deploy to EC2 Kubernetes
         uses: appleboy/ssh-action@v1.0.3
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          AWS_REGION: us-east-1
           ACTIVE_ENV: ${{ env.ACTIVE_ENV }}
           INACTIVE_ENV: ${{ env.INACTIVE_ENV }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           timeout: 60s
           command_timeout: 900s
-          envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,ECR_REGISTRY,AWS_REGION,ACTIVE_ENV,INACTIVE_ENV
+          envs: ECR_REGISTRY,ACTIVE_ENV,INACTIVE_ENV,DB_PASSWORD,GRAFANA_PASSWORD
           script: |
-            set -e # Exit immediately if a command exits with a non-zero status.
-            export PATH=$PATH:/usr/bin:/usr/local/bin # Ensure docker is in PATH
+            set -e
             
-            # Skip apt update if packages already installed
-            if ! command -v docker &> /dev/null || ! command -v unzip &> /dev/null; then
-              echo "Installing missing packages..."
-              sudo apt-get update -qq
-              sudo apt-get install -y unzip docker.io curl
+            # Install kubectl if not present
+            if ! command -v kubectl &> /dev/null; then
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              sudo mv kubectl /usr/local/bin/
             fi
             
-            # Install Docker Compose V2 only if not present
-            if [ ! -f ~/.docker/cli-plugins/docker-compose ]; then
-              echo "Installing Docker Compose V2..."
-              mkdir -p ~/.docker/cli-plugins
-              curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
-              chmod +x ~/.docker/cli-plugins/docker-compose
-            fi
+            # Configure AWS CLI and ECR login
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws configure set default.region us-east-1
             
-            # Add user to docker group if not already added
-            if ! groups ${{ secrets.SERVER_USERNAME }} | grep -q docker; then
-              echo "Adding user to docker group..."
-              sudo usermod -aG docker ${{ secrets.SERVER_USERNAME }}
-              sudo systemctl restart docker
-            fi
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
             
-            if ! command -v aws &> /dev/null; then
-              echo "AWS CLI not found. Installing..."
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip -o awscliv2.zip
-              sudo ./aws/install
-              rm -rf awscliv2.zip aws
-            fi
-            
-            # Debug: Print environment variables to verify they are set
-            echo "DEBUG: AWS_REGION=$AWS_REGION"
-            echo "DEBUG: ECR_REGISTRY=$ECR_REGISTRY"
-            echo "DEBUG: AWS_ACCESS_KEY_ID is set: $([ -n "$AWS_ACCESS_KEY_ID" ] && echo 'YES' || echo 'NO')"
-            echo "DEBUG: AWS_SECRET_ACCESS_KEY is set: $([ -n "$AWS_SECRET_ACCESS_KEY" ] && echo 'YES' || echo 'NO')"
-            
-            # Get ECR login password and perform docker login
-            # The credentials will be stored in /home/${{ secrets.SERVER_USERNAME }}/.docker/config.json
-            echo "Logging in to ECR at $ECR_REGISTRY..."
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-            
-            # Ensure the target directory exists and clone/pull the repository
+            # Clone/update repository
             REPO_DIR="/home/${{ secrets.SERVER_USERNAME }}/my-docker-app"
             if [ ! -d "$REPO_DIR" ]; then
-              echo "Creating repository directory $REPO_DIR and cloning..."
-              mkdir -p "$REPO_DIR"
               git clone https://github.com/lordemmag-devops/my-docker-app.git "$REPO_DIR"
             fi
             cd "$REPO_DIR"
-
-            # Remove any local secret files that might conflict with the merge
-            rm -f db-password.txt grafana-admin-password.txt
-
             git pull origin master
-
-            # Create secret files from GitHub secrets
-            echo "${{ secrets.DB_PASSWORD }}" > db-password.txt
-            chmod 644 db-password.txt
-            echo "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" > grafana-admin-password.txt
-            chmod 644 grafana-admin-password.txt
             
-            # Use environment variables passed from GitHub Actions
-            INACTIVE_PORT=$([ "$INACTIVE_ENV" == "blue" ] && echo 8080 || echo 80)
+            # Create namespace
+            kubectl apply -f k8s/namespace.yaml
             
-            echo "--- Deploying to inactive environment: $INACTIVE_ENV on port $INACTIVE_PORT ---"
-            # Use DOCKER_CONFIG to point to the user's docker config file when running with sudo
-            # Start shared services first
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d db cache
-            echo "Waiting for database to start..."
-            sleep 15
+            # Create/update secrets
+            kubectl create secret generic db-password \
+              --from-literal=password="${DB_PASSWORD:-supersecret}" \
+              --namespace=my-docker-app \
+              --dry-run=client -o yaml | kubectl apply -f -
             
-            # Pull and build images
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose pull
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose build proxy-$INACTIVE_ENV
+            kubectl create secret generic grafana-password \
+              --from-literal=password="${GRAFANA_PASSWORD:-admin123}" \
+              --namespace=my-docker-app \
+              --dry-run=client -o yaml | kubectl apply -f -
             
-            # Deploy inactive environment
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            # Update image tags
+            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest|$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:${{ github.sha }}|g" k8s/backend.yaml
+            sed -i "s|471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest|$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:${{ github.sha }}|g" k8s/frontend.yaml
             
-            # Start monitoring services
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose up -d prometheus grafana
+            # Deploy infrastructure
+            kubectl apply -f k8s/db.yaml -n my-docker-app
+            kubectl apply -f k8s/cache.yaml -n my-docker-app
+            kubectl apply -f k8s/monitoring.yaml -n my-docker-app
             
-            echo "Waiting for services to start..."
-            sleep 30
+            # Wait for infrastructure
+            kubectl wait --for=condition=available --timeout=300s deployment/db -n my-docker-app
+            kubectl wait --for=condition=available --timeout=300s deployment/cache -n my-docker-app
             
-            echo "--- Logs from api-$INACTIVE_ENV service ---"
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
-            echo "--- End of logs from api-$INACTIVE_ENV service ---"
-
-            echo "--- Health check on inactive environment ---"
+            # Deploy application
+            kubectl apply -f k8s/backend.yaml -n my-docker-app
+            kubectl apply -f k8s/frontend.yaml -n my-docker-app
+            
+            # Scale up inactive environment
+            kubectl scale deployment backend-$INACTIVE_ENV --replicas=2 -n my-docker-app
+            kubectl scale deployment frontend-$INACTIVE_ENV --replicas=2 -n my-docker-app
+            
+            # Wait for deployment
+            kubectl wait --for=condition=available --timeout=300s deployment/backend-$INACTIVE_ENV -n my-docker-app
+            kubectl wait --for=condition=available --timeout=300s deployment/frontend-$INACTIVE_ENV -n my-docker-app
+            
+            # Health check
+            BACKEND_POD=$(kubectl get pods -n my-docker-app -l app=backend,version=$INACTIVE_ENV -o jsonpath='{.items[0].metadata.name}')
+            
             for i in {1..12}; do
-              if curl -fs "http://localhost:$INACTIVE_PORT/api/health"; then
-                echo "Health check passed! Switching traffic..."
-                
-                # Stop active proxy to switch traffic
-                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose stop proxy-$ACTIVE_ENV
-                
-                # Clean up old containers
-                sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose rm -f web-$ACTIVE_ENV api-$ACTIVE_ENV
-                
-                echo "Traffic successfully switched to $INACTIVE_ENV environment"
-                exit 0
+              if kubectl exec -n my-docker-app $BACKEND_POD -- curl -f http://localhost:3000/health; then
+                echo "Health check passed"
+                break
               fi
-              echo "Health check attempt $i failed. Retrying in 10s..."
+              if [ $i -eq 12 ]; then
+                echo "Health check failed"
+                exit 1
+              fi
               sleep 10
             done
             
-            echo "Health check failed after multiple retries. Rolling back..."
+            # Switch traffic
+            kubectl patch service backend-active -n my-docker-app -p '{"spec":{"selector":{"version":"'$INACTIVE_ENV'"}}}'
+            kubectl patch service frontend-active -n my-docker-app -p '{"spec":{"selector":{"version":"'$INACTIVE_ENV'"}}}'
             
-            # Rollback: stop failed deployment
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose stop web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose rm -f web-$INACTIVE_ENV api-$INACTIVE_ENV proxy-$INACTIVE_ENV
+            kubectl apply -f k8s/blue-green-switch.yaml -n my-docker-app
+            kubectl apply -f k8s/ingress.yaml -n my-docker-app
             
-            echo "--- Logs from failing api-$INACTIVE_ENV service ---"
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs api-$INACTIVE_ENV
-            echo "--- Logs from db service ---"
-            sudo DOCKER_CONFIG="/home/${{ secrets.SERVER_USERNAME }}/.docker" docker compose logs db
+            # Scale down old environment
+            kubectl scale deployment backend-$ACTIVE_ENV --replicas=0 -n my-docker-app
+            kubectl scale deployment frontend-$ACTIVE_ENV --replicas=0 -n my-docker-app
             
-            echo "Deployment failed and rolled back. Active environment remains: $ACTIVE_ENV"
-            exit 1
-
+            echo "Deployment completed successfully!"
+            kubectl get pods -n my-docker-app
