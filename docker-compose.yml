@@ -214,4 +214,3 @@ secrets:
 
 # To deploy the stack, use:
 # docker-compose -f docker-compose.yml up -d
-# Test
