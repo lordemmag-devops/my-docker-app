@@ -81,11 +81,233 @@
 }
 
 .chat-input {
+  position: relative;
   display: flex;
-  padding: 15px 20px; /* Consistent padding */
+  padding: 15px 20px;
   border-top: 1px solid #e0e0e0;
   background-color: #ffffff;
   align-items: center;
+}
+
+.input-controls {
+  display: flex;
+  gap: 8px;
+  margin-right: 10px;
+}
+
+.emoji-btn, .camera-btn, .file-btn {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  font-size: 1.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.emoji-btn:hover, .camera-btn:hover, .file-btn:hover {
+  background: #e8e8e8;
+  transform: scale(1.1);
+}
+
+.camera-btn:disabled, .file-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.emoji-picker, .sticker-picker {
+  position: absolute;
+  bottom: 70px;
+  left: 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  z-index: 1000;
+}
+
+
+
+.emoji-option {
+  background: none;
+  border: none;
+  font-size: 1.5em;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.emoji-option:hover {
+  background: #f0f0f0;
+  transform: scale(1.2);
+}
+
+
+
+.emoji-message {
+  font-size: 2em;
+  line-height: 1;
+}
+
+
+
+.message.emoji {
+  background: transparent !important;
+  padding: 5px;
+  text-align: center;
+}
+
+.message.emoji strong {
+  font-size: 0.8em;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.image-message {
+  max-width: 300px;
+}
+
+.image-message img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.file-name {
+  font-size: 0.8em;
+  color: #666;
+  display: block;
+}
+
+.file-message {
+  padding: 10px;
+  background: #f0f0f0;
+  border-radius: 8px;
+  border-left: 4px solid #2575fc;
+}
+
+.file-message a {
+  text-decoration: none;
+  color: #2575fc;
+  font-weight: 500;
+}
+
+.file-message a:hover {
+  text-decoration: underline;
+}
+
+.camera-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.camera-container {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+#camera-video {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.camera-controls {
+  position: absolute;
+  bottom: -80px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.filter-btn.active {
+  background: #2575fc;
+  border-color: #2575fc;
+}
+
+.camera-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.camera-action-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.camera-action-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.capture-btn {
+  background: #ff4757;
+  border: 3px solid white;
+  color: white;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  font-size: 1.5em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.capture-btn:hover {
+  background: #ff3742;
+  transform: scale(1.05);
 }
 
 .chat-input input {

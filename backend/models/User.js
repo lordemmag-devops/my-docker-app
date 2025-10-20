@@ -48,7 +48,28 @@ const MessageSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true,
+    required: function() { return this.type === 'text'; },
+  },
+  type: {
+    type: String,
+    enum: ['text', 'emoji', 'image', 'file'],
+    default: 'text',
+  },
+  emoji: {
+    type: String,
+    required: function() { return this.type === 'emoji'; },
+  },
+
+  fileName: {
+    type: String,
+    required: function() { return ['image', 'file'].includes(this.type); },
+  },
+  fileUrl: {
+    type: String,
+    required: function() { return ['image', 'file'].includes(this.type); },
+  },
+  fileSize: {
+    type: Number,
   },
   timestamp: {
     type: Date,

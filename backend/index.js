@@ -9,6 +9,8 @@ const config = require('./config');
 const fs = require('fs');
 const client = require('prom-client'); // Import prom-client
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 
 const app = express();
 
@@ -28,9 +30,39 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
+// File upload configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = '/app/uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error('Invalid file type'));
+  }
+});
+
 // Middleware
 app.use(express.json());
 app.use(cors());
+app.use('/uploads', express.static('/app/uploads'));
 
 // Connect to MongoDB
 console.log('Attempting to connect to MongoDB...');
@@ -185,26 +217,63 @@ app.post('/login', async (req, res, next) => {
 // Send message route (protected)
 app.post('/messages', authenticateToken, async (req, res, next) => {
   try {
-    const { text } = req.body;
+    const { text, type = 'text', emoji, sticker } = req.body;
     const senderId = req.user.userId;
 
-    if (!text.trim()) {
+    // Validate based on message type
+    if (type === 'text' && !text?.trim()) {
       return res.status(400).json({ message: 'Message text is required' });
     }
+    if (type === 'emoji' && !emoji) {
+      return res.status(400).json({ message: 'Emoji is required' });
+    }
 
-    const message = new Message({
+
+    const messageData = {
       sender: senderId,
-      text: text.trim(),
-    });
+      type,
+    };
 
+    if (type === 'text') messageData.text = text.trim();
+    if (type === 'emoji') messageData.emoji = emoji;
+
+
+    const message = new Message(messageData);
     await message.save();
-
-    // Populate sender info
     await message.populate('sender', 'username');
 
     res.status(201).json(message);
   } catch (error) {
     console.error('Send message error:', error);
+    next(error);
+  }
+});
+
+// File upload route (protected)
+app.post('/upload', authenticateToken, upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const senderId = req.user.userId;
+    const isImage = /\.(jpg|jpeg|png|gif)$/i.test(req.file.originalname);
+    
+    const messageData = {
+      sender: senderId,
+      type: isImage ? 'image' : 'file',
+      fileName: req.file.originalname,
+      fileUrl: `/uploads/${req.file.filename}`,
+      fileSize: req.file.size,
+    };
+
+    const message = new Message(messageData);
+    await message.save();
+    await message.populate('sender', 'username');
+
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('File upload error:', error);
     next(error);
   }
 });
