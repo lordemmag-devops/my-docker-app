@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: my-docker-app
+  namespace: argocd
+spec:
+  description: Multi-service Docker application project
+  sourceRepos:
+  - '*'
+  destinations:
+  - namespace: my-docker-app
+    server: https://kubernetes.default.svc
+  - namespace: monitoring
+    server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: networking.k8s.io
+    kind: Ingress
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: Service
+  - group: ''
+    kind: ConfigMap
+  - group: ''
+    kind: Secret
+  - group: apps
+    kind: Deployment
+  - group: networking.k8s.io
+    kind: Ingress

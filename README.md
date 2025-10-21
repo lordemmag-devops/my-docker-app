@@ -1,6 +1,6 @@
 # Multi-Service Docker Application with Blue-Green Deployment
 
-This is a comprehensive multi-service web application built with Docker, Kubernetes, and modern DevOps practices. It showcases a real-world implementation of containerized services, automated deployments, monitoring, and security measures. The application features a React frontend, Node.js backend, MongoDB database, Redis cache, Nginx reverse proxy, and integrated monitoring with Prometheus and Grafana. It supports both local Docker Compose development and Kubernetes production deployments via GitHub Actions CI/CD pipeline.
+This is a comprehensive multi-service web application built with Docker, Kubernetes, and modern DevOps practices. It showcases a real-world implementation of containerized services, automated deployments, monitoring, and security measures. The application features a React frontend, Node.js backend, MongoDB database, Redis cache, Nginx reverse proxy, and integrated monitoring with Prometheus and Grafana. It supports both local Docker Compose development and Kubernetes production deployments via ArgoCD GitOps pipeline.
 
 ## 🏗️ Architecture Overview
 
@@ -14,12 +14,12 @@ The application follows a microservices architecture with the following componen
 - **Monitoring**: Prometheus for metrics collection and Grafana for visualization
 - **Security**: Containerized secrets management with Docker secrets
 
-The deployment strategy uses blue-green methodology to ensure zero-downtime updates through GitHub Actions automation.
+The deployment strategy uses blue-green methodology to ensure zero-downtime updates through ArgoCD GitOps automation.
 
 ## ✨ Key Features
 
 - **Multi-Stage Docker Builds**: Optimized images for production efficiency
-- **Blue-Green Deployment**: Zero-downtime updates via automated CI/CD
+- **GitOps Deployment**: Zero-downtime updates via ArgoCD GitOps
 - **Comprehensive Monitoring**: Prometheus metrics and Grafana dashboards
 - **Security First**: Sensitive data handled via Docker secrets and gitignore
 - **Scalable Architecture**: Ready for Kubernetes production deployment
@@ -35,6 +35,7 @@ Before running the application, ensure you have:
 - **Node.js** (18+ for development)
 - **Git** for version control
 - **kubectl** (for Kubernetes deployment)
+- **ArgoCD CLI** (for GitOps management)
 - **AWS CLI** (if using ECR for image registry)
 
 ## 📁 Project Structure
@@ -68,14 +69,20 @@ my-docker-app/
 │   ├── frontend.yaml
 │   ├── nginx.yaml
 │   ├── db.yaml
-│   └── cache.yaml
+│   ├── cache.yaml
+│   └── blue-green-switch.yaml
+├── argocd/                 # ArgoCD GitOps configuration
+│   ├── apps/
+│   │   ├── my-docker-app.yaml
+│   │   ├── monitoring.yaml
+│   │   └── blue-green-switch.yaml
+│   ├── projects/
+│   │   └── my-docker-app-project.yaml
+│   ├── bootstrap.sh
+│   └── install.yaml
 ├── nginx/                  # Nginx reverse proxy configuration
 │   ├── Dockerfile
 │   └── nginx.conf
-├── .github/workflows/      # GitHub Actions CI/CD pipeline
-│   └── deploy.yml
-├── base-node/              # Custom Node.js base image
-│   └── Dockerfile
 ├── .gitignore              # Excludes sensitive files (passwords, logs)
 ├── docker-compose.yml      # Local development orchestration
 ├── prometheus.yml          # Monitoring configuration
@@ -176,65 +183,75 @@ docker compose logs -f  # Optional: tail logs
 docker compose down     # Stop services
 ```
 
-## ☸️ Kubernetes Deployment
+## ☸️ ArgoCD Deployment
 
-For production, deploy using Kubernetes manifests:
+For production, deploy using ArgoCD GitOps:
 
 ### Prerequisites
 - Kubernetes cluster (EKS, GKE, or self-managed)
-- AWS ECR access (if using AWS)
+- ArgoCD installed
 - kubectl configured
+- Git repository access
 
 ### Deployment Steps
 
-1. **Apply Kustomization**
+1. **Install ArgoCD**
    ```bash
-   kubectl apply -k k8s/
+   ./argocd/bootstrap.sh
    ```
 
-2. **Verify Deployment**
+2. **Verify ArgoCD Applications**
    ```bash
-   kubectl get pods
-   kubectl get services
-   kubectl get ingress
+   kubectl get applications -n argocd
+   argocd app list
    ```
 
 3. **Access Application**
    ```bash
-   kubectl get ingress
-   # Use the EXTERNAL-IP from output
+   kubectl get ingress -n my-docker-app
    ```
 
-### Kustomization Features
+### ArgoCD Features
 
-The `kustomization.yaml` includes:
-- Environment-specific overlays
-- Secret management via Sealed Secrets
-- Resource requests and limits
-- Health check configurations
+The ArgoCD setup includes:
+- Automated sync from Git repository
+- Blue-green deployment support
+- Self-healing applications
+- Rollback capabilities
+- Multi-environment management
 
-## 🔄 CI/CD Pipeline
+## 🔄 GitOps Pipeline
 
-Automated deployments using GitHub Actions:
+Automated deployments using ArgoCD:
 
-### Pipeline Flow
-1. **Trigger**: Push to main branch or PR merge
-2. **Build**: Multi-stage Docker builds for frontend and backend
-3. **Test**: Run linting and unit tests (if implemented)
-4. **Security**: Scan images for vulnerabilities
-5. **Deploy**: Blue-green deployment to production
-6. **Monitor**: Update monitoring alerts
+### ArgoCD Setup
+1. **Install ArgoCD**:
+   ```bash
+   ./argocd/bootstrap.sh
+   ```
+
+2. **Access ArgoCD UI**:
+   ```bash
+   kubectl port-forward svc/argocd-server -n argocd 8080:443
+   ```
+
+### GitOps Flow
+1. **Trigger**: Push to main branch
+2. **Sync**: ArgoCD detects changes automatically
+3. **Deploy**: Blue-green deployment via Kustomize patches
+4. **Monitor**: Health checks and rollback if needed
 
 ### Blue-Green Strategy
-- **Active Environment**: Serves live traffic
-- **Inactive Environment**: Receives new deployment
-- **Traffic Switch**: Only switches after health checks pass
-- **Rollback**: Automatic rollback on deployment failure
-
-### Deployment States
 - **Blue Environment**: Currently serving traffic
 - **Green Environment**: Ready to be promoted
-- **Traffic Direction**: Controlled via Nginx configuration
+- **Traffic Switch**: Update ArgoCD application to switch versions
+- **Rollback**: Git revert triggers automatic rollback
+
+### Switch Traffic
+```bash
+# Switch to green environment
+kubectl patch application blue-green-switch -n argocd --type='merge' -p='{"spec":{"source":{"kustomize":{"patches":[{"target":{"kind":"Service","name":"backend-active"},"patch":"- op: replace\n  path: /spec/selector/version\n  value: green"}]}}}'
+```
 
 ## 📊 Monitoring & Observability
 
@@ -294,9 +311,10 @@ kubectl logs <pod-name>
 - Confirm network connectivity
 
 #### Deployment Failures
-- Review GitHub Actions logs
+- Review ArgoCD application status
 - Check ECR permissions
 - Verify Kubernetes cluster access
+- Check ArgoCD sync status
 
 #### Monitoring Issues
 - Ensure Grafana password file exists
@@ -315,6 +333,11 @@ docker system df                 # Disk usage
 kubectl describe pod <pod-name>  # Debug pods
 kubectl logs -f <pod-name>       # Follow logs
 kubectl scale deployment api --replicas=2  # Scaling
+
+# ArgoCD
+argocd app sync my-docker-app    # Manual sync
+argocd app get my-docker-app     # App status
+argocd app rollback my-docker-app # Rollback
 
 # Monitoring
 curl localhost:9090/-/healthy    # Prometheus health
@@ -342,6 +365,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [Docker Documentation](https://docs.docker.com)
 - [Kubernetes Documentation](https://kubernetes.io/docs)
+- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
 - [Blue-Green Deployment Guide](https://roadmap.sh/projects/blue-green-deployment)
 - [Multi-Service Docker Setup](https://roadmap.sh/projects/multiservice-docker)
 

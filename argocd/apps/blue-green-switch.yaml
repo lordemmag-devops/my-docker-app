@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: blue-green-switch
+  namespace: argocd
+spec:
+  project: my-docker-app
+  source:
+    repoURL: https://github.com/your-username/my-docker-app
+    targetRevision: HEAD
+    path: k8s
+    kustomize:
+      patches:
+      - target:
+          kind: Service
+          name: backend-active
+        patch: |-
+          - op: replace
+            path: /spec/selector/version
+            value: blue
+      - target:
+          kind: Service
+          name: frontend-active
+        patch: |-
+          - op: replace
+            path: /spec/selector/version
+            value: blue
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: my-docker-app
+  syncPolicy:
+    syncOptions:
+    - RespectIgnoreDifferences=true

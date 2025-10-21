@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: my-docker-app
+  source:
+    repoURL: https://github.com/your-username/my-docker-app
+    targetRevision: HEAD
+    path: k8s
+    kustomize:
+      namePrefix: monitoring-
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
