@@ -1,0 +1,43 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  template:
+    includedNamespaces:
+    - my-docker-app
+    - monitoring
+    - logging
+    storageLocation: default
+    ttl: 720h0m0s  # 30 days
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: weekly-full-backup
+  namespace: velero
+spec:
+  schedule: "0 1 * * 0"  # Weekly on Sunday at 1 AM
+  template:
+    includedNamespaces:
+    - "*"
+    storageLocation: default
+    ttl: 2160h0m0s  # 90 days
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-restore-scripts
+  namespace: velero
+data:
+  restore.sh: |
+    #!/bin/bash
+    # Restore from latest backup
+    velero restore create --from-backup $(velero backup get | grep Completed | head -1 | awk '{print $1}')
+  
+  backup-now.sh: |
+    #!/bin/bash
+    # Create immediate backup
+    velero backup create manual-backup-$(date +%Y%m%d-%H%M%S) --include-namespaces my-docker-app

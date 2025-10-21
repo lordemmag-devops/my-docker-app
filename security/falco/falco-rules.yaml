@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-rules
+  namespace: falco-system
+data:
+  custom_rules.yaml: |
+    - rule: Detect Shell in Container
+      desc: Detect shell execution in container
+      condition: >
+        spawned_process and container and
+        (proc.name in (shell_binaries) or
+         proc.name in (bash, sh, zsh))
+      output: >
+        Shell spawned in container (user=%user.name container=%container.name 
+        image=%container.image.repository proc=%proc.cmdline)
+      priority: WARNING
+      tags: [container, shell]
+    
+    - rule: Detect Privilege Escalation
+      desc: Detect privilege escalation attempts
+      condition: >
+        spawned_process and container and
+        proc.name in (sudo, su, doas)
+      output: >
+        Privilege escalation attempt (user=%user.name container=%container.name 
+        image=%container.image.repository proc=%proc.cmdline)
+      priority: CRITICAL
+      tags: [container, privilege_escalation]
