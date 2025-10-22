@@ -6,7 +6,13 @@ terraform {
       version = "~> 5.0"
     }
   }
-
+  backend "s3" {
+    bucket         = "my-docker-app-terraform-state-471112825200-471112825200"
+    key            = "terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
