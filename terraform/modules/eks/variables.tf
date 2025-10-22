@@ -1,25 +1,21 @@
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-west-2"
-}
-
 variable "cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "my-docker-app-cluster"
 }
 
 variable "cluster_version" {
   description = "EKS cluster version"
   type        = string
-  default     = "1.28"
 }
 
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
+variable "vpc_id" {
+  description = "VPC ID"
   type        = string
-  default     = "10.0.0.0/16"
+}
+
+variable "subnet_ids" {
+  description = "Subnet IDs for EKS cluster"
+  type        = list(string)
 }
 
 variable "node_groups" {
@@ -30,12 +26,4 @@ variable "node_groups" {
     max_size      = number
     desired_size  = number
   }))
-  default = {
-    main = {
-      instance_types = ["t3.medium"]
-      min_size      = 1
-      max_size      = 5
-      desired_size  = 2
-    }
-  }
 }
