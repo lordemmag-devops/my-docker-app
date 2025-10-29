@@ -1,28 +1,33 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "alert_rules.yml"
 
 scrape_configs:
-  - job_name: 'web-blue'
-    static_configs:
-      - targets: ['web-blue:80']
-  - job_name: 'api-blue'
+  # Chat API Blue Environment - Has /metrics endpoint
+  - job_name: 'chat-api-blue'
     static_configs:
       - targets: ['api-blue:3000']
-  - job_name: 'web-green'
-    static_configs:
-      - targets: ['web-green:80']
-  - job_name: 'api-green'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    
+  # Chat API Green Environment - Has /metrics endpoint
+  - job_name: 'chat-api-green'
     static_configs:
       - targets: ['api-green:3000']
-  - job_name: 'db'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    
+  # Prometheus Self-Monitoring
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['db:27017']
-  - job_name: 'cache'
-    static_configs:
-      - targets: ['cache:6379']
-  - job_name: 'proxy-blue'
-    static_configs:
-      - targets: ['proxy-blue:80']
-  - job_name: 'proxy-green'
-    static_configs:
-      - targets: ['proxy-green:80']
+      - targets: ['localhost:9090']
+    scrape_interval: 15s
+
+  # Note: MongoDB, Redis, and Nginx don't expose Prometheus metrics by default
+  # To monitor them, you would need to add exporters:
+  # - MongoDB Exporter: https://github.com/percona/mongodb_exporter
+  # - Redis Exporter: https://github.com/oliver006/redis_exporter  
+  # - Nginx Exporter: https://github.com/nginxinc/nginx-prometheus-exporter

@@ -23,6 +23,12 @@ function Chat({ user, token, onLogout }) {
 
   const fetchMessages = async () => {
     try {
+      if (!token) {
+        setError('No authentication token');
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(`${config.API_BASE_URL}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -32,11 +38,15 @@ function Chat({ user, token, onLogout }) {
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
+        setError(null);
+      } else if (response.status === 401 || response.status === 403) {
+        setError('Authentication failed. Please login again.');
+        onLogout();
       } else {
-        throw new Error('Failed to fetch messages');
+        throw new Error(`Failed to fetch messages: ${response.status}`);
       }
     } catch (err) {
-      setError('Failed to load messages');
+      setError('Failed to load messages. Check your connection.');
       console.error('Fetch messages error:', err);
     } finally {
       setLoading(false);
