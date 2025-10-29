@@ -1,104 +1,61 @@
-
 services:
+  # True blue-green proxy (single entry point)
+  app:
+    build: ./nginx
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    environment:
+      - WEB_HOST=web-blue
+      - API_HOST=api-blue
+    depends_on:
+      - web-blue
+      - api-blue
 
+  # Blue environment
   web-blue:
     build: ./frontend
-    ports:
-      - "3003:80"
     networks:
       - app-net
     depends_on:
       db:
         condition: service_healthy
-      cache:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   api-blue:
     build: ./backend
     ports:
-      - "3001:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+      - "3001:3000"  # Direct access for testing
     networks:
       - app-net
     environment:
       MONGO_URL: mongodb://db:27017/mydatabase
-      DB_NAME: mydatabase
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
 
+  # Green environment (standby)
   web-green:
     build: ./frontend
-    ports:
-      - "3004:80"
     networks:
       - app-net
     depends_on:
       db:
         condition: service_healthy
-      cache:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   api-green:
     build: ./backend
     ports:
-      - "3002:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+      - "3002:3000"  # Direct access for testing
     networks:
       - app-net
     environment:
       MONGO_URL: mongodb://db:27017/mydatabase
-      DB_NAME: mydatabase
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
 
+  # Database & Cache
   db:
     image: mongo:latest
     volumes:
@@ -110,7 +67,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+
   cache:
     image: redis:latest
     volumes:
@@ -123,46 +80,7 @@ services:
       timeout: 10s
       retries: 3
 
-  proxy-blue:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    networks:
-      - app-net
-    depends_on:
-      - web-blue
-      - api-blue
-    environment:
-      - WEB_HOST=web-blue
-      - API_HOST=api-blue
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  proxy-green:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    ports:
-      - "8080:80"
-    networks:
-      - app-net
-    depends_on:
-      - web-green
-      - api-green
-    environment:
-      - WEB_HOST=web-green
-      - API_HOST=api-green
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-  
+  # Monitoring Stack
   prometheus:
     image: prom/prometheus:latest
     volumes:
@@ -170,13 +88,7 @@ services:
     networks:
       - app-net
     ports:
-    - "9090:9090"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      - "9090:9090"
 
   grafana:
     image: grafana/grafana:latest
@@ -190,16 +102,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana-admin-password
     secrets:
       - grafana-admin-password
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 networks:
   app-net:
-    driver: bridge
 
 volumes:
   db-data:
@@ -207,10 +112,5 @@ volumes:
   grafana-data:
 
 secrets:
-  db-password:
-    file: ./db-password.txt
   grafana-admin-password:
     file: ./grafana-admin-password.txt
-
-# To deploy the stack, use:
-# docker-compose -f docker-compose.yml up -d
