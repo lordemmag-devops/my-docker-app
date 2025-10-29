@@ -83,50 +83,50 @@ jobs:
           npm install
           echo "Frontend tests passed (placeholder)"
 
-  # AUTOMATED BLUE-GREEN DEPLOY
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to staging
-        run: |
-          # Determine target environment
-          CURRENT=$(docker-compose exec -T app printenv WEB_HOST | cut -d'-' -f2 2>/dev/null || echo "blue")
-          TARGET=$([ "$CURRENT" = "blue" ] && echo "green" || echo "blue")
-          
-          echo "🚀 Deploying to $TARGET environment"
-          
-          # Build and start target environment
-          docker-compose build web-$TARGET api-$TARGET
-          docker-compose up -d web-$TARGET api-$TARGET
-          
-          # Wait and health check
-          sleep 30
-          PORT=$([ "$TARGET" = "blue" ] && echo "3001" || echo "3002")
-          
-          # Health check with retries
-          for i in {1..5}; do
-            if curl -sf http://localhost:$PORT/health; then
-              echo "✅ $TARGET environment healthy"
-              break
-            fi
-            [ $i -eq 5 ] && { echo "❌ Health check failed"; exit 1; }
-            sleep 10
-          done
-          
-          # Switch traffic
-          bash switch-environment.sh $TARGET
-          
-          # Verify switch
-          if curl -sf http://localhost:80; then
-            echo "✅ Blue-green deployment successful"
-            # Optional: Stop old environment
-            docker-compose stop web-$CURRENT api-$CURRENT
-          else
-            echo "❌ Deployment verification failed"
-            bash rollback.sh
-            exit 1
-          fi
+  # AUTOMATED BLUE-GREEN DEPLOY - TEMPORARILY DISABLED
+  # deploy:
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/master'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Deploy to staging
+  #       run: |
+  #         # Determine target environment
+  #         CURRENT=$(docker-compose exec -T app printenv WEB_HOST | cut -d'-' -f2 2>/dev/null || echo "blue")
+  #         TARGET=$([ "$CURRENT" = "blue" ] && echo "green" || echo "blue")
+  #         
+  #         echo "🚀 Deploying to $TARGET environment"
+  #         
+  #         # Build and start target environment
+  #         docker-compose build web-$TARGET api-$TARGET
+  #         docker-compose up -d web-$TARGET api-$TARGET
+  #         
+  #         # Wait and health check
+  #         sleep 30
+  #         PORT=$([ "$TARGET" = "blue" ] && echo "3001" || echo "3002")
+  #         
+  #         # Health check with retries
+  #         for i in {1..5}; do
+  #           if curl -sf http://localhost:$PORT/health; then
+  #             echo "✅ $TARGET environment healthy"
+  #             break
+  #           fi
+  #           [ $i -eq 5 ] && { echo "❌ Health check failed"; exit 1; }
+  #           sleep 10
+  #         done
+  #         
+  #         # Switch traffic
+  #         bash switch-environment.sh $TARGET
+  #         
+  #         # Verify switch
+  #         if curl -sf http://localhost:80; then
+  #           echo "✅ Blue-green deployment successful"
+  #           # Optional: Stop old environment
+  #           docker-compose stop web-$CURRENT api-$CURRENT
+  #         else
+  #           echo "❌ Deployment verification failed"
+  #           bash rollback.sh
+  #           exit 1
+  #         fi
