@@ -8,7 +8,7 @@ resources:
 - nginx.yaml
 - monitoring.yaml
 - blue-green-switch.yaml
-- ingress.yaml
+
 
 namespace: my-docker-app
 

@@ -6,9 +6,6 @@ services:
       - "80:80"
     networks:
       - app-net
-    environment:
-      - WEB_HOST=web-blue
-      - API_HOST=api-blue
     depends_on:
       - web-blue
       - api-blue

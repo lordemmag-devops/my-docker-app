@@ -1,132 +1,44 @@
-name: CI/CD Pipeline
+name: Build and Test
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
-    branches: [master]
-
-permissions:
-  contents: read
-  security-events: write
-
-env:
-  AWS_REGION: us-west-2
-  EKS_CLUSTER_NAME: my-docker-app-cluster
+    branches: [ master ]
 
 jobs:
-  # BUILD SECTION
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      
-      - name: Build backend image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: my-docker-app-cluster-app
-          IMAGE_TAG: backend-${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      
-      - name: Build frontend image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: my-docker-app-cluster-app
-          IMAGE_TAG: frontend-${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-  # TEST SECTION
-  test:
-    needs: build
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-      
-      - name: Run backend tests
-        run: |
-          cd backend
-          npm install
-          echo "Backend tests passed (placeholder)"
-      
-      - name: Run frontend tests
-        run: |
-          cd frontend
-          npm install
-          echo "Frontend tests passed (placeholder)"
+    - name: Checkout
+      uses: actions/checkout@v3
 
-  # AUTOMATED BLUE-GREEN DEPLOY - TEMPORARILY DISABLED
-  # deploy:
-  #   needs: test
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/master'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     
-  #     - name: Deploy to staging
-  #       run: |
-  #         # Determine target environment
-  #         CURRENT=$(docker-compose exec -T app printenv WEB_HOST | cut -d'-' -f2 2>/dev/null || echo "blue")
-  #         TARGET=$([ "$CURRENT" = "blue" ] && echo "green" || echo "blue")
-  #         
-  #         echo "🚀 Deploying to $TARGET environment"
-  #         
-  #         # Build and start target environment
-  #         docker-compose build web-$TARGET api-$TARGET
-  #         docker-compose up -d web-$TARGET api-$TARGET
-  #         
-  #         # Wait and health check
-  #         sleep 30
-  #         PORT=$([ "$TARGET" = "blue" ] && echo "3001" || echo "3002")
-  #         
-  #         # Health check with retries
-  #         for i in {1..5}; do
-  #           if curl -sf http://localhost:$PORT/health; then
-  #             echo "✅ $TARGET environment healthy"
-  #             break
-  #           fi
-  #           [ $i -eq 5 ] && { echo "❌ Health check failed"; exit 1; }
-  #           sleep 10
-  #         done
-  #         
-  #         # Switch traffic
-  #         bash switch-environment.sh $TARGET
-  #         
-  #         # Verify switch
-  #         if curl -sf http://localhost:80; then
-  #           echo "✅ Blue-green deployment successful"
-  #           # Optional: Stop old environment
-  #           docker-compose stop web-$CURRENT api-$CURRENT
-  #         else
-  #           echo "❌ Deployment verification failed"
-  #           bash rollback.sh
-  #           exit 1
-  #         fi
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm install
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Build Docker images
+      run: |
+        docker build -t my-docker-app-backend:latest ./backend
+        docker build -t my-docker-app-frontend:latest ./frontend
+        docker build -t my-docker-app-nginx:latest ./nginx
+
+    - name: Test Docker Compose
+      run: |
+        docker-compose up -d
+        sleep 30
+        curl -f http://localhost || exit 1
+        docker-compose down

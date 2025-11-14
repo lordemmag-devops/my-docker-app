@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-blue
+  labels:
+    app: backend
+    version: blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: blue
+    spec:
+      containers:
+      - name: backend
+        image: ACR_NAME.azurecr.io/backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MONGO_URL
+          value: "mongodb://db:27017/mydatabase"
+        - name: DB_NAME
+          value: "mydatabase"
+        - name: REDIS_HOST
+          value: "cache"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 3000
+    targetPort: 3000

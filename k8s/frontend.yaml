@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest
+        image: my-docker-app-frontend:latest
         ports:
         - containerPort: 80
         resources:
@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-frontend:latest
+        image: my-docker-app-frontend:latest
         ports:
         - containerPort: 80
         resources:

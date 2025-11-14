@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest
+        image: my-docker-app-backend:latest
         ports:
         - containerPort: 3000
         env:
@@ -72,7 +72,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: 471112825200.dkr.ecr.us-east-1.amazonaws.com/my-docker-app-backend:latest
+        image: my-docker-app-backend:latest
         ports:
         - containerPort: 3000
         env:

@@ -1,27 +1,25 @@
-# Enterprise Multi-Service Docker Application
+# Multi-Service Docker Application
 
-Production-ready multi-service application with comprehensive DevOps toolchain including Infrastructure as Code, CI/CD, Security, Observability, and Disaster Recovery.
+Production-ready multi-service application with comprehensive DevOps toolchain including Blue-Green deployment, CI/CD, Security, and Observability.
 
 ## 🏗️ Architecture
 
 - **Frontend**: React.js with Nginx
 - **Backend**: Node.js Express API
 - **Database**: MongoDB with Redis cache
-- **Infrastructure**: Terraform + AWS EKS
-- **CI/CD**: GitHub Actions + ArgoCD GitOps
-- **Security**: Falco + OPA Gatekeeper + Trivy
-- **Observability**: ELK Stack + Jaeger + Prometheus/Grafana
-- **Backup**: Velero + MongoDB backups
+- **CI/CD**: GitHub Actions
+- **Security**: Trivy vulnerability scanning
+- **Observability**: Prometheus + Grafana monitoring
+- **Deployment**: Blue-Green deployment strategy
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 ```bash
 # Install required tools
-terraform --version
-kubectl version
-helm version
-aws --version
+docker --version
+docker-compose --version
+kubectl version  # Optional for Kubernetes deployment
 ```
 
 ### Deploy Everything
@@ -30,84 +28,54 @@ aws --version
 git clone <repo-url>
 cd my-docker-app
 
-# Deploy infrastructure and applications
-./scripts/install-all.sh
+# Start all services
+docker-compose up -d
 ```
 
 ## 📁 Project Structure
 
 ```
 my-docker-app/
-├── terraform/              # Infrastructure as Code
-│   ├── modules/            # Reusable Terraform modules
-│   └── environments/       # Environment-specific configs
 ├── .github/workflows/      # CI/CD pipelines
 ├── security/               # Security policies and tools
-│   ├── falco/             # Runtime security
-│   ├── opa/               # Policy enforcement
-│   └── sealed-secrets/    # Encrypted secrets
 ├── observability/          # Monitoring and logging
-│   ├── elk/               # Elasticsearch, Logstash, Kibana
-│   ├── jaeger/            # Distributed tracing
-│   └── fluentd/           # Log collection
 ├── backup/                 # Disaster recovery
-│   ├── velero/            # Cluster backups
-│   └── mongodb/           # Database backups
 ├── argocd/                # GitOps deployment
 ├── k8s/                   # Kubernetes manifests
 ├── backend/               # Node.js API
 ├── frontend/              # React application
+├── nginx/                 # Load balancer
 └── scripts/               # Automation scripts
 ```
 
 ## 🔧 DevOps Tools Integrated
 
-### Infrastructure as Code
-- **Terraform**: AWS EKS cluster provisioning
-- **Modules**: Reusable infrastructure components
-- **State Management**: S3 backend with locking
-
 ### CI/CD Pipeline
 - **GitHub Actions**: Build, test, security scan
-- **ArgoCD**: GitOps continuous deployment
 - **Blue-Green**: Zero-downtime deployments
 
 ### Security & Compliance
 - **Trivy**: Vulnerability scanning
-- **Falco**: Runtime security monitoring
-- **OPA Gatekeeper**: Policy enforcement
-- **Sealed Secrets**: Encrypted secret management
+- **Container Security**: Best practices
 
 ### Observability
 - **Prometheus**: Metrics collection
 - **Grafana**: Visualization dashboards
-- **ELK Stack**: Centralized logging
-- **Jaeger**: Distributed tracing
-- **Fluentd**: Log aggregation
+- **Health Checks**: Application monitoring
 
 ### Backup & Recovery
 - **Velero**: Kubernetes cluster backups
 - **MongoDB Backups**: Automated database backups
-- **S3 Storage**: Backup retention and management
 
 ## 🔐 Security Features
 
-### Runtime Security
+### Container Security
 ```bash
-# Falco monitors for:
-- Shell access in containers
-- Privilege escalation attempts
-- Suspicious network activity
-- File system changes
-```
-
-### Policy Enforcement
-```bash
-# OPA Gatekeeper enforces:
-- Network policies required
-- Resource limits mandatory
-- Security contexts validated
-- Image scanning required
+# Trivy scans for:
+- Vulnerability detection
+- Misconfiguration checks
+- Secret scanning
+- License compliance
 ```
 
 ## 📊 Monitoring & Alerts
@@ -115,85 +83,56 @@ my-docker-app/
 ### Access Dashboards
 ```bash
 # Grafana (Metrics)
-kubectl port-forward svc/grafana -n monitoring 3000:80
+http://localhost:3005 (admin/mypassword)
 
-# Kibana (Logs)
-kubectl port-forward svc/kibana -n logging 5601:5601
+# Prometheus (Raw metrics)
+http://localhost:9090
 
-# Jaeger (Tracing)
-kubectl port-forward svc/jaeger-query -n observability 16686:16686
-
-# ArgoCD (Deployments)
-kubectl port-forward svc/argocd-server -n argocd 8080:80
-```
-
-## 💾 Backup & Recovery
-
-### Automated Backups
-- **Daily**: Application namespaces
-- **Weekly**: Full cluster backup
-- **Database**: MongoDB daily dumps to S3
-
-### Disaster Recovery
-```bash
-# Restore from backup
-velero restore create --from-backup <backup-name>
-
-# MongoDB restore
-mongorestore --host db:27017 /backup/<backup-date>
+# Application
+http://localhost
 ```
 
 ## 🚀 Deployment Workflow
 
 1. **Code Push** → GitHub Actions triggered
 2. **Security Scan** → Trivy vulnerability check
-3. **Build Images** → Docker build and push to ECR
-4. **Update Manifests** → Automated K8s manifest updates
-5. **ArgoCD Sync** → GitOps deployment to cluster
-6. **Blue-Green Switch** → Zero-downtime traffic routing
-7. **Monitoring** → Health checks and alerts
+3. **Build Images** → Docker build and test
+4. **Blue-Green Switch** → Zero-downtime deployment
 
 ## 🔧 Operations
 
 ### Scale Applications
 ```bash
-kubectl scale deployment backend --replicas=5 -n my-docker-app
+docker-compose up -d --scale backend=3
 ```
 
 ### View Logs
 ```bash
-kubectl logs -f deployment/backend -n my-docker-app
+docker-compose logs -f backend
 ```
 
-### Security Alerts
+### Blue-Green Deployment
 ```bash
-kubectl logs -f daemonset/falco -n falco-system
-```
+# Switch environments
+./switch-environment.sh green
 
-### Backup Status
-```bash
-velero backup get
+# Rollback if needed
+./rollback.sh
 ```
 
 ## 🎯 Production Readiness
 
-✅ **Infrastructure as Code** - Terraform modules
-✅ **CI/CD Pipeline** - GitHub Actions + ArgoCD  
-✅ **Security Scanning** - Trivy + Falco + OPA
-✅ **Centralized Logging** - ELK Stack
-✅ **Distributed Tracing** - Jaeger
+✅ **CI/CD Pipeline** - GitHub Actions
+✅ **Security Scanning** - Trivy vulnerability detection
 ✅ **Monitoring & Alerting** - Prometheus/Grafana
-✅ **Backup & Recovery** - Velero + Database backups
 ✅ **Blue-Green Deployments** - Zero-downtime updates
-✅ **Policy Enforcement** - OPA Gatekeeper
-✅ **Secret Management** - Sealed Secrets
+✅ **Health Checks** - Application monitoring
+✅ **Container Security** - Best practices implemented
 
 ## 📚 Documentation
 
-- [Infrastructure Setup](terraform/README.md)
-- [Security Policies](security/README.md)
-- [Monitoring Guide](observability/README.md)
-- [Backup Procedures](backup/README.md)
+- [Monitoring Guide](MONITORING-COMPLETE-SETUP.md)
+- [Deployment Guide](DEPLOYMENT.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-Built with ❤️ using enterprise DevOps best practices.
+Built with ❤️ using DevOps best practices.

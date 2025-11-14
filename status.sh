@@ -1,6 +1,13 @@
 #!/bin/bash
 
-CURRENT_ENV=$(docker-compose exec -T app printenv WEB_HOST | cut -d'-' -f2 2>/dev/null || echo "unknown")
+STATE_FILE=".current_env"
+
+# Get current environment from state file or default to blue
+if [ -f "$STATE_FILE" ]; then
+    CURRENT_ENV=$(cat "$STATE_FILE")
+else
+    CURRENT_ENV="blue"
+fi
 
 echo "📊 Blue-Green Deployment Status"
 echo "================================"
