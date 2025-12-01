@@ -110,4 +110,4 @@ volumes:
 
 secrets:
   grafana-admin-password:
-    file: ./secrets/grafana-admin-password.txt
+    file: ./grafana-admin-password.txt

@@ -1,0 +1,58 @@
+# Docker Security Best Practices Configuration
+
+# Security policies for containers
+version: '3.8'
+
+x-security-defaults: &security-defaults
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp:noexec,nosuid,size=100m
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - SETGID
+    - SETUID
+
+# User configuration
+x-user-config: &user-config
+  user: "1001:1001"
+
+services:
+  # Secure backend configuration
+  api-blue-secure:
+    extends:
+      service: api-blue
+    <<: *security-defaults
+    <<: *user-config
+    environment:
+      - NODE_ENV=production
+      - MONGO_URL=mongodb://db:27017/mydatabase
+    volumes:
+      - /app/node_modules
+      - ./secrets:/run/secrets:ro
+
+  # Secure frontend configuration  
+  web-blue-secure:
+    extends:
+      service: web-blue
+    <<: *security-defaults
+    <<: *user-config
+    volumes:
+      - /var/cache/nginx
+      - /var/run
+
+  # Secure database configuration
+  db-secure:
+    extends:
+      service: db
+    <<: *security-defaults
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD_FILE=/run/secrets/db-password
+    volumes:
+      - db-data:/data/db
+      - ./secrets:/run/secrets:ro
+    command: ["mongod", "--auth", "--bind_ip_all"]

@@ -1,0 +1,7 @@
+# Trivy ignore file for known acceptable vulnerabilities
+
+# Example: Ignore specific CVE if it's not applicable to your use case
+# CVE-2021-44228
+
+# Ignore low severity vulnerabilities in development dependencies
+# You can add specific CVEs here that are acceptable for your environment
