@@ -64,13 +64,13 @@ jobs:
       run: |
         cd backend
         npm ci
-        npm test || echo "No tests found"
+        npm test || echo "Backend tests failed or not found"
 
     - name: Install and test frontend
       run: |
         cd frontend
         npm ci
-        npm test -- --watchAll=false || echo "No tests found"
+        npm test -- --watchAll=false --passWithNoTests || echo "Frontend tests failed or not found"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3

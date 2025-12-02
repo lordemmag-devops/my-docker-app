@@ -10,9 +10,9 @@ RUN npm run build
 
 FROM nginx:alpine AS runtime
 
-# Create non-root user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001
+# Use existing nginx user and set proper permissions
+RUN addgroup -g 1001 -S appuser || true && \
+    adduser -S appuser -u 1001 -G appuser || true
 
 # Security: Install security updates and remove unnecessary packages
 RUN apk update && apk upgrade && \
@@ -27,7 +27,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create directories and set permissions
 RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
-    chown -R nginx:nginx /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx/html && \
+    chown -R appuser:appuser /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx/html && \
     chmod -R 755 /var/cache/nginx /var/run /var/log/nginx
 
 # Health check
@@ -35,7 +35,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
 
 # Switch to non-root user
-USER nginx
+USER appuser
 
 EXPOSE 80
 
