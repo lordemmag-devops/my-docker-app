@@ -16,7 +16,7 @@ RUN addgroup -g 1001 -S appuser || true && \
 
 # Security: Install security updates and remove unnecessary packages
 RUN apk update && apk upgrade && \
-    apk add --no-cache dumb-init && \
+    apk add --no-cache dumb-init wget && \
     rm -rf /var/cache/apk/* /tmp/*
 
 # Copy built app from builder stage
@@ -31,7 +31,7 @@ RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
     chmod -R 755 /var/cache/nginx /var/run /var/log/nginx
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
 
 # Switch to non-root user
