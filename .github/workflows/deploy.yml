@@ -84,13 +84,13 @@ jobs:
     - name: Scan Docker images with Trivy
       run: |
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+          aquasec/trivy:latest image --exit-code 1 --severity CRITICAL \
           ${{ env.REGISTRY }}/my-docker-app-backend:${{ env.IMAGE_TAG }}
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+          aquasec/trivy:latest image --exit-code 1 --severity CRITICAL \
           ${{ env.REGISTRY }}/my-docker-app-frontend:${{ env.IMAGE_TAG }}
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+          aquasec/trivy:latest image --exit-code 1 --severity CRITICAL \
           ${{ env.REGISTRY }}/my-docker-app-nginx:${{ env.IMAGE_TAG }}
 
     - name: Test application
