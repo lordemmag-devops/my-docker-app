@@ -101,7 +101,7 @@ jobs:
         sed -i "s|build: ./nginx|image: ${{ env.REGISTRY }}/my-docker-app-nginx:${{ env.IMAGE_TAG }}|g" docker-compose.yml
         
         docker compose up -d
-        sleep 45
+        sleep 90
         curl -f http://localhost:80 || exit 1
         curl -f http://localhost:3001/health || echo "Health endpoint not available"
         docker compose down
